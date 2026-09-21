@@ -350,6 +350,11 @@ function renderSegments() {
     renderSegments();
     touched();
   });
+  segmented($('segFirstHome'), [{ label: 'Yes, my first', value: true }, { label: 'No, I\'ve owned before', value: false }], state.firstHome !== false, (value) => {
+    state.firstHome = value;
+    renderSegments();
+    touched();
+  });
   segmented($('segPriceMode'), [{ label: 'The estimate above', value: 'auto' }, { label: 'A price I enter', value: 'manual' }], state.priceTestMode, (mode) => {
     state.priceTestMode = mode;
     if (mode === 'manual' && !state.testPrice) state.testPrice = Math.round(lastResult?.price || 400000);
@@ -843,6 +848,10 @@ function paint({ animate = false } = {}) {
   $('downPctHint').textContent = result.price > 0
     ? `${result.payment.downPct.toFixed(1)}% of the estimated price.${result.payment.downPct < 20 ? ' Under 20% means PMI.' : ' No PMI at 20% or more.'}`
     : '';
+  $('firstHomeHint').textContent = state.firstHome !== false
+    ? "The Money Guy's 3/5/25 lets a first home go as low as 3% down, provided you plan to stay five years. Under 20% still means PMI."
+    : "After your first home, The Money Guy's figure is 20% down, not 3% — and the stay is five to seven years.";
+
   $('insHint').textContent = state.insMode === 'estimate'
     ? `${INS_TIER_TEXT[result.model.insTier]} Estimated at ${money(result.payment.insurance)}/mo for this price.`
     : 'Used as a flat monthly premium at any price.';

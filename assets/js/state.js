@@ -54,7 +54,10 @@ export function createDefaultState() {
     priceTestMode: 'auto',
     testPrice: null,
     // Optional: only the readiness checks use it, and they say so when it's blank.
-    emergencyFund: 0
+    emergencyFund: 0,
+    // Changes which branch of The Money Guy's 3/5/25 applies: a first home can go
+    // down to 3%, anything after it is 20%.
+    firstHome: true
   };
 }
 
@@ -80,7 +83,7 @@ export function newItem(kind, overrides = {}) {
 const PERSISTED_KEYS = [
   'salary', 'filing', 'payfreq', 'k401', 'savingsItems', 'debtItems', 'expenseItems',
   'credit', 'term', 'city', 'stateCode', 'downpayment', 'hoa', 'insMode', 'insManual',
-  'priceTestMode', 'testPrice', 'emergencyFund'
+  'priceTestMode', 'testPrice', 'emergencyFund', 'firstHome'
 ];
 
 export function serialize(state) {
