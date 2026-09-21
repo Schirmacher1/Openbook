@@ -1143,3 +1143,20 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
   line-height: 1.5;
   color: var(--ink-faint);
 }
+
+/* Each gross ratio beside the 28/36 limit it is measured against. */
+.dti-check { grid-column: 1 / -1; margin-top: 8px; display: grid; gap: 5px; }
+.dti-row {
+  display: grid; grid-template-columns: minmax(74px, auto) 1fr auto;
+  gap: 4px 10px; align-items: baseline; font-size: 12.5px;
+}
+.dti-label { color: var(--ink-faint); font-weight: 700; }
+.dti-figures { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.dti-figures strong { color: var(--ink); font-family: var(--font-mono); font-weight: 600; }
+.dti-mark { font-size: 12px; font-weight: 800; }
+.dti-mark.is-ok { color: var(--good); }
+.dti-mark.is-over { color: var(--bad); }
+@media (max-width: 420px) {
+  .dti-row { grid-template-columns: 1fr auto; }
+  .dti-label { grid-column: 1 / -1; }
+}

@@ -294,15 +294,27 @@ export function compute(state) {
     // number a lender never asks about; gross is the one every published rule is
     // written in. Quoting one without naming it invites the reader to measure it
     // against a rule written in the other.
-    housingShareOfTakeHome: netMonthly > 0 ? ledgerPayment.total / netMonthly : 0,
-    approvalShareOfTakeHome: netMonthly > 0 ? approvalPayment.total / netMonthly : 0,
+    // Both halves of a debt-to-income ratio, for each figure on the page. The
+    // front end is housing against gross — what 28/36's 28 measures. The back
+    // end adds every other debt payment — what its 36 measures. Printing one
+    // without the other invites it to be read against the wrong limit.
+    //
+    // Two sets, because two different payments are in play and pairing a
+    // payment with the other one's ratios is how you end up showing $1,913/mo
+    // at 58% of gross. `estimate*` describes the affordability estimate, which
+    // is what the headline comparison is about. The unprefixed ones describe
+    // the payment actually on the table — the estimate normally, or the what-if
+    // price once one is entered — which is what the readiness checks and the
+    // rules verdict are judging.
+    estimateShareOfTakeHome: netMonthly > 0 ? payment.total / netMonthly : 0,
+    estimateFrontEnd: grossMonthly > 0 ? payment.total / grossMonthly : 0,
+    estimateBackEnd: grossMonthly > 0 ? (payment.total + debtsMonthly) / grossMonthly : 0,
 
-    // Both halves of a debt-to-income ratio, for each line. The front end is
-    // housing against gross — what 28/36's 28 measures. The back end adds every
-    // other debt payment — what its 36 measures. Printing only the front end
-    // invites it to be read against the wrong one of the two.
+    housingShareOfTakeHome: netMonthly > 0 ? ledgerPayment.total / netMonthly : 0,
     frontEnd: grossMonthly > 0 ? ledgerPayment.total / grossMonthly : 0,
     backEnd: grossMonthly > 0 ? (ledgerPayment.total + debtsMonthly) / grossMonthly : 0,
+
+    approvalShareOfTakeHome: netMonthly > 0 ? approvalPayment.total / netMonthly : 0,
     approvalFrontEnd: grossMonthly > 0 ? approvalPayment.total / grossMonthly : 0,
     approvalBackEnd: grossMonthly > 0 ? (approvalPayment.total + debtsMonthly) / grossMonthly : 0
   };

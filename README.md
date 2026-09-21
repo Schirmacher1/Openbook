@@ -122,14 +122,28 @@ play and only two of them are the 28/36 rule:
 | `backEnd` | (housing + all other debt) ÷ gross | the **36** |
 
 Openbook leads with the take-home share because that's the argument, but a bare
-percentage gets measured against whichever rule the reader has in mind. The hero prints
-all three on both lines so the rule can be checked rather than taken on trust — on the
-example household: 36% of take-home, 24% front-end, 33% back-end, so it clears 28/36 on
-both counts.
+percentage means nothing without the limit it's being measured against. So the hero sets
+each ratio beside the figure the rule actually states, with a pass mark:
+
+```
+Housing           24% of gross · rule allows 28%   ✓
+With your debts   33% of gross · rule allows 36%   ✓
+```
+
+The approval line gets the same two rows and fails both (36% and 45%), which makes the
+argument without a word of copy.
+
+There are two sets of these ratios, because two payments are in play. `estimate*`
+describes the affordability estimate and drives the hero. The unprefixed `frontEnd` /
+`backEnd` describe the payment actually on the table — the estimate normally, the what-if
+price once one is entered — and drive the readiness checks and the rules verdict. Pairing
+a payment with the other one's ratios is how the hero briefly showed a $1,913/mo payment
+at 58% of gross; `tests/calc.test.js` now guards against it.
 
 Printing only the front end was actively misleading on the approval line, whose housing
 share happens to be 36% of gross. Next to a rule whose second number is also 36, that
-reads as "the lender is at the 28/36 limit" when its real back-end is 45%.
+reads as "the lender is at the 28/36 limit" when its real back-end is 45%. Showing the
+stated limit on every row removes the ambiguity entirely.
 
 Two implementation details that matter:
 
