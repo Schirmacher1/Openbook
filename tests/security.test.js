@@ -20,7 +20,7 @@ function assertNoBadNumbers(state, label) {
   const figures = [
     result.price, result.payment.total, result.paycheck.netMonthly, result.housingBudget,
     result.takeHomePerPeriod, result.ledger.debitsTotal, result.ledger.unallocated,
-    result.lender.price, ...evaluateBenchmarks(result, state).map((b) => b.price)
+    result.approval.price, result.ruleOfThumb.price, ...evaluateBenchmarks(result, state).map((b) => b.price)
   ];
   for (const figure of figures) {
     assert.ok(Number.isFinite(figure), `${label} produced a non-finite figure: ${figure}`);

@@ -66,11 +66,9 @@ and under `npm test`.
    principal and interest, property tax, homeowners insurance, PMI and HOA — fits that
    budget. Bisection (rather than an algebraic inverse) because PMI steps at
    loan-to-value cutoffs, so the payment isn't smooth in price.
-4. **The lender comparison.** The same solver run against conventional underwriting:
-   28% of gross monthly income for housing, 36% including all other debt, whichever
-   binds first.
-5. **The rules of thumb.** The same solver again, once per published benchmark — see
-   below.
+4. **The lender comparison.** The same solver run against what underwriting actually
+   approves — see below.
+5. **The rules of thumb.** The same solver again, once per published benchmark.
 
 ### What it doesn't model
 
@@ -90,8 +88,29 @@ publicly, with a link to their own words:
 | Openbook | whatever your paycheck actually leaves | take-home, after everything you listed |
 | [Ramsey](https://www.ramseysolutions.com/real-estate/how-much-house-can-i-afford) | 25% of take-home pay, **on a 15-year fixed** | monthly take-home |
 | [The Money Guy — 3/5/25](https://moneyguy.com/guide/home-buying/) | 3% down **on a first home** (20% after that), 5 years in the home, 25% of gross | monthly gross |
-| Conventional underwriting | 28% of gross for housing, 36% including all debt | monthly gross |
+| The 28/36 rule | 28% of gross for housing, 36% including all debt — advice, not a limit | monthly gross |
+| [What a lender will approve](https://selling-guide.fanniemae.com/sel/b3-6-02/debt-income-ratios) | 45% of gross counting all debt, **no front-end cap** | monthly gross |
 | [HUD cost-burden line](https://www.huduser.gov/portal/pdredge/pdr_edge_featd_article_092214.html) | 30% of gross (50% is "severely cost burdened") | monthly gross |
+
+### Approved is not the same as affordable
+
+The hero comparison is against **what a lender will approve**, which is a much larger
+number than the 28/36 rule most calculators quote:
+
+- a conventional loan applies **no front-end housing cap** — 28% is a guideline, not a
+  requirement, and total debt-to-income is the only ratio underwriting enforces;
+- Fannie Mae's automated underwriter (Desktop Underwriter) allows total DTI up to **50%**;
+  manual underwriting starts at 36% and stretches to 45% on credit score and reserves;
+  FHA runs to **57%** with an automated approval and strong compensating factors.
+
+`DTI_APPROVAL` is set to **45%** — past what manual underwriting allows unaided, short of
+the DU ceiling — as where a typical conventional approval lands. Erring low is deliberate:
+the real gap is more often wider than this than narrower. On the example household it
+still produces a **$116k** gap, with the approved payment taking 54% of take-home pay
+against Openbook's 36%.
+
+The 28/36 rule stays in the rules section as what it is: guidance, sitting alongside
+Ramsey and The Money Guy rather than standing in for a lender.
 
 Two implementation details that matter:
 
@@ -106,6 +125,11 @@ Two implementation details that matter:
   `state.firstHome` decides which branch the down-payment check and the rule's own note
   apply. The control sits directly above the down-payment field and the check names the
   branch it used, so the assumption is never silent.
+
+Scoring counts the guidance rules only. Openbook's own line isn't a rule, and neither are
+the two ceilings — coming in under a limit you'd have to be reckless to breach isn't an
+achievement. A breached ceiling is reported separately, because it's alarming rather than
+merely worth noting.
 
 `readiness()` covers what the sources spend most of their time on: consumer debt, the
 emergency fund, the down payment, the retirement contribution rate (Ramsey's 15% of

@@ -132,8 +132,30 @@ export const INS_TIER_TEXT = {
 };
 
 /**
- * The conventional underwriting rule of thumb Openbook is measured against:
- * housing ≤ 28% of gross monthly income, and housing + all other debt ≤ 36%.
+ * The classic 28/36 rule of thumb: housing ≤ 28% of gross monthly income, and
+ * housing plus all other debt ≤ 36%. This is *advice* — the figure textbooks and
+ * advisers quote. It is not what a lender enforces, and conflating the two is
+ * the most common way an affordability calculator flatters itself.
  */
 export const DTI_FRONT_END = 0.28;
 export const DTI_BACK_END = 0.36;
+
+/**
+ * What a lender will actually approve, which is a different and much larger
+ * number.
+ *
+ * A conventional loan has no hard front-end housing cap — 28% is a guideline,
+ * not a requirement, and total debt-to-income is what underwriting enforces.
+ * Fannie Mae's automated underwriter (Desktop Underwriter) allows total DTI up
+ * to 50%; manual underwriting starts at 36% and stretches to 45% on credit
+ * score and reserves. FHA runs to 57% with an automated approval and strong
+ * compensating factors.
+ *
+ * 45% is modelled here as where a typical conventional approval lands: past what
+ * manual underwriting allows without compensating factors, short of the DU
+ * ceiling. Erring low is deliberate — the real gap is more often wider than this
+ * than narrower.
+ */
+export const DTI_APPROVAL = 0.45;
+export const DTI_DU_CEILING = 0.50;
+export const DTI_FHA_CEILING = 0.57;

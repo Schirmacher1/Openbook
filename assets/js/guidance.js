@@ -56,13 +56,25 @@ export const BENCHMARKS = [
   },
   {
     id: 'conventional',
-    name: 'Conventional underwriting',
+    name: 'The 28/36 rule',
     rule: '28% of gross for housing, 36% including all debt',
     basis: 'monthly gross income',
-    source: 'The 28/36 rule lenders use',
-    budget: (r) => r.lender.housingBudget,
+    source: 'The classic underwriting rule of thumb',
+    budget: (r) => r.ruleOfThumb.housingBudget,
     term: null,
-    note: 'What a lender will approve, not what it recommends. It counts the debts on your credit report and nothing else — not your 401(k), your groceries or the tax you actually pay.'
+    note: 'The figure textbooks and advice columns quote, and the one most affordability calculators are built on. Worth knowing that it is advice rather than a limit: no lender enforces it, and the line below shows what one will actually sign off on.'
+  },
+  {
+    id: 'approval',
+    name: 'What a lender will approve',
+    rule: '45% of gross, counting all debt',
+    basis: 'monthly gross income',
+    source: 'Fannie Mae / conventional underwriting',
+    url: 'https://selling-guide.fanniemae.com/sel/b3-6-02/debt-income-ratios',
+    isCeiling: true,
+    budget: (r) => r.approval.housingBudget,
+    term: null,
+    note: 'Not a recommendation — the ceiling. A conventional loan applies no front-end housing cap, so total debt-to-income is the only constraint, and Fannie Mae\'s automated underwriter allows up to 50%; FHA stretches to 57% with strong compensating factors. 45% is modelled here as where a typical approval lands, so if anything this is the conservative end. It counts the debts on your credit report and nothing else — not your 401(k), your groceries, your childcare, or the tax you actually pay.'
   },
   {
     id: 'hud',
@@ -111,10 +123,22 @@ export function evaluateBenchmarks(result, state) {
   });
 }
 
-/** How many of the real rules the current plan satisfies (Openbook isn't a rule). */
+/**
+ * How many of the guidance rules the plan satisfies.
+ *
+ * Openbook's own line isn't a rule, and neither are the ceilings — coming in
+ * under a limit you'd have to be reckless to breach isn't an achievement, and
+ * counting them would flatter the score. Breached ceilings are reported
+ * separately, because those are alarming rather than merely worth noting.
+ */
 export function scoreBenchmarks(evaluated) {
-  const rules = evaluated.filter((b) => !b.isYou);
-  return { passed: rules.filter((b) => b.fits).length, total: rules.length };
+  const rules = evaluated.filter((b) => !b.isYou && !b.isCeiling);
+  return {
+    passed: rules.filter((b) => b.fits).length,
+    total: rules.length,
+    missed: rules.filter((b) => !b.fits),
+    ceilingsBreached: evaluated.filter((b) => b.isCeiling && !b.fits)
+  };
 }
 
 /* ---------------------------------------------------------------------------

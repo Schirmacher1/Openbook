@@ -173,13 +173,43 @@ test('compute: a percentage savings row tracks take-home pay', () => {
   near(result.savingsPostTaxMonthly, result.paycheck.netMonthly * 0.1, 0.01);
 });
 
-test('compute: the lender estimate follows the 28/36 rule', () => {
+test('compute: the 28/36 rule of thumb binds on whichever half is tighter', () => {
   const state = createDefaultState();
   const result = compute(state);
   const grossMonthly = state.salary / 12;
   const expected = Math.min(grossMonthly * 0.28, grossMonthly * 0.36 - result.debtsMonthly);
-  near(result.lender.housingBudget, expected, 0.01);
-  assert.ok(result.lender.payment.total <= result.lender.housingBudget + 0.01);
+  near(result.ruleOfThumb.housingBudget, expected, 0.01);
+  assert.ok(result.ruleOfThumb.payment.total <= result.ruleOfThumb.housingBudget + 0.01);
+});
+
+test('compute: approval uses total DTI with no front-end cap', () => {
+  const state = createDefaultState();
+  const result = compute(state);
+  const grossMonthly = state.salary / 12;
+
+  // A conventional loan caps total debt-to-income only — 28% of gross never binds.
+  near(result.approval.housingBudget, grossMonthly * 0.45 - result.debtsMonthly, 0.01);
+  assert.ok(result.approval.housingBudget > grossMonthly * 0.28,
+    'the approval budget must be free to exceed the 28% housing guideline');
+  assert.ok(result.approval.payment.total <= result.approval.housingBudget + 0.01);
+});
+
+test('compute: a lender approves materially more than the rule of thumb', () => {
+  const result = compute(createDefaultState());
+  assert.ok(result.approval.price > result.ruleOfThumb.price,
+    'approval must exceed the advice rule, or the comparison is meaningless');
+  assert.ok(result.approval.price > result.price * 1.2,
+    'the approved figure should be far above what the paycheck supports');
+});
+
+test('compute: debts reduce the approval budget dollar for dollar', () => {
+  const noDebt = createDefaultState();
+  noDebt.debtItems = [];
+  const withDebt = createDefaultState();
+
+  const a = compute(noDebt);
+  const b = compute(withDebt);
+  near(a.approval.housingBudget - b.approval.housingBudget, b.debtsMonthly, 0.01);
 });
 
 test('compute: a spent-out budget never produces a negative price', () => {
