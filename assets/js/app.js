@@ -529,13 +529,19 @@ function renderDtiCheck(container, frontEnd, backEnd, caption) {
 /** The hero comparison: approved vs. affordable, both direct-labelled. */
 function renderCompare(result) {
   const lender = result.approval.price;
+  const rule = result.rule28.price;
   const openbook = result.price;
-  const max = Math.max(lender, openbook, 1);
+  const max = Math.max(lender, rule, openbook, 1);
 
   $('lenderBar').style.width = `${(lender / max) * 100}%`;
+  $('ruleBar').style.width = `${(rule / max) * 100}%`;
   $('openbookBar').style.width = `${(openbook / max) * 100}%`;
   $('lenderPrice').textContent = money(lender);
+  $('rulePrice').textContent = money(rule);
   $('openbookPrice').textContent = money(openbook);
+
+  $('ruleNote').textContent = `${money(result.rule28.housingBudget)}/mo — 28% of your ${
+    money(result.grossMonthly)} gross monthly income, which is what the rule states.`;
 
   $('lenderNote').textContent = `A ${money(result.approval.payment.total)}/mo payment — ${
     pct(result.approvalShareOfTakeHome)} of take-home pay.`;

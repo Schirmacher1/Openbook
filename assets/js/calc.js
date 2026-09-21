@@ -250,6 +250,14 @@ export function compute(state) {
   const approvalPrice = approvalBudget > 0 ? solvePrice(approvalBudget, model) : model.downpayment;
   const approvalPayment = model.paymentAt(approvalPrice);
 
+  // The 28% half on its own: "don't spend more than 28% of gross on housing".
+  // Shown as its own figure because it is the number people actually quote, and
+  // because the combined rule below usually reports the 36% half instead — so
+  // without this the 28% price never appears anywhere.
+  const rule28Budget = ruleCap;
+  const rule28Price = rule28Budget > 0 ? solvePrice(rule28Budget, model) : model.downpayment;
+  const rule28Payment = model.paymentAt(rule28Price);
+
   // The 28/36 rule of thumb, kept separate because it is advice rather than
   // underwriting: housing under 28% of gross, everything under 36%, whichever
   // binds first.
@@ -302,7 +310,12 @@ export function compute(state) {
     pmiTierLimited: !usingTestPrice && !cappedByRule && housingBudget > 0 && unallocated > 1
       && isPmiTierLimited(price, model),
     approval: { housingBudget: approvalBudget, price: approvalPrice, payment: approvalPayment },
-    ruleOfThumb: { housingBudget: ruleOfThumbBudget, price: ruleOfThumbPrice, payment: ruleOfThumbPayment },
+    rule28: { housingBudget: rule28Budget, price: rule28Price, payment: rule28Payment },
+    ruleOfThumb: {
+      housingBudget: ruleOfThumbBudget, price: ruleOfThumbPrice, payment: ruleOfThumbPayment,
+      // Which half of 28/36 produced the figure — the 36 usually wins.
+      boundBy: ruleOfThumbBudget < rule28Budget - 0.01 ? 'back' : 'front'
+    },
     ledger: { usingTestPrice, payment: ledgerPayment, debits, debitsTotal, unallocated },
     // Both denominators, because they are the whole argument. Take-home is the
     // number a lender never asks about; gross is the one every published rule is

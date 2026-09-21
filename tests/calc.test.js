@@ -329,3 +329,41 @@ test('compute: every household lands inside the rule on housing', () => {
       `housing came to ${(result.estimateFrontEnd * 100).toFixed(1)}% of gross, over the rule`);
   }
 });
+
+test('compute: the 28% rule gets its own figure, stated as the rule states it', () => {
+  const state = createDefaultState();
+  const result = compute(state);
+
+  near(result.rule28.housingBudget, result.grossMonthly * 0.28, 0.01);
+  assert.ok(result.rule28.payment.total <= result.rule28.housingBudget + 0.01);
+
+  // It must not be the same number as the combined rule whenever debts make the
+  // 36% half tighter — that conflation is why the 28% price was never on screen.
+  assert.ok(result.debtsMonthly > 0);
+  assert.ok(result.rule28.price > result.ruleOfThumb.price);
+  assert.equal(result.ruleOfThumb.boundBy, 'back');
+});
+
+test('compute: with no other debts the two halves agree and the 28% binds', () => {
+  const state = createDefaultState();
+  state.debtItems = [];
+  const result = compute(state);
+
+  near(result.ruleOfThumb.housingBudget, result.rule28.housingBudget, 0.01);
+  assert.equal(result.ruleOfThumb.boundBy, 'front');
+});
+
+test('compute: the paycheck figure can never exceed the 28% rule figure', () => {
+  for (const mutate of [
+    (s) => {},
+    (s) => { s.expenseItems = []; s.debtItems = []; },
+    (s) => { s.salary = 300000; s.savingsItems = []; },
+    (s) => { s.salary = 45000; }
+  ]) {
+    const state = createDefaultState();
+    mutate(state);
+    const result = compute(state);
+    assert.ok(result.price <= result.rule28.price + 1,
+      'the cap should keep the recommendation at or under the rule');
+  }
+});

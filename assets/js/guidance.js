@@ -62,7 +62,13 @@ export const BENCHMARKS = [
     source: 'The classic underwriting rule of thumb',
     budget: (r) => r.ruleOfThumb.housingBudget,
     term: null,
-    note: 'The figure textbooks and advice columns quote, and the one most affordability calculators are built on. Worth knowing that it is advice rather than a limit: no lender enforces it, and the line below shows what one will actually sign off on.'
+    note: (r) => {
+      const money = (n) => `$${Math.round(n).toLocaleString('en-US')}`;
+      const halves = `On your income the 28% half allows ${money(r.rule28.housingBudget)} a month, and the 36% half — which has to cover your ${
+        money(r.debtsMonthly)} of other debt payments too — leaves ${money(r.ruleOfThumb.housingBudget)}. Both have to hold, so the ${
+        r.ruleOfThumb.boundBy === 'back' ? '36%' : '28%'} half is the one setting this figure.`;
+      return `The figure textbooks and advice columns quote, and the one most affordability calculators are built on. ${halves} Worth knowing that it is advice rather than a limit: no lender enforces it, and the approval line shows what one will actually sign off on.`;
+    }
   },
   {
     id: 'approval',
