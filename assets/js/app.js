@@ -487,12 +487,15 @@ function renderCompare(result) {
   $('lenderPrice').textContent = money(lender);
   $('openbookPrice').textContent = money(openbook);
 
-  // Both shares, always named. "36%" on its own gets read against the 28/36
-  // rule, which is written in gross — a different denominator entirely.
+  // Take-home share first, since it's the one the page argues from, then both
+  // halves of the gross ratio so the 28/36 rule can be checked against the
+  // figures it's actually written in.
   $('lenderNote').textContent = `A ${money(result.approval.payment.total)}/mo payment — ${
-    pct(result.approvalShareOfTakeHome)} of take-home pay, ${pct(result.approvalShareOfGross)} of gross.`;
+    pct(result.approvalShareOfTakeHome)} of take-home. Against gross: ${
+    pct(result.approvalFrontEnd)} on housing, ${pct(result.approvalBackEnd)} counting your debts.`;
   $('openbookNote').textContent = `A ${money(result.payment.total)}/mo payment — ${
-    pct(result.housingShareOfTakeHome)} of take-home pay, ${pct(result.housingShareOfGross)} of gross.`;
+    pct(result.housingShareOfTakeHome)} of take-home. Against gross: ${
+    pct(result.frontEnd)} on housing, ${pct(result.backEnd)} counting your debts.`;
 
   const gap = lender - openbook;
   const chip = $('deltaChip');

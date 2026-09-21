@@ -295,8 +295,15 @@ export function compute(state) {
     // written in. Quoting one without naming it invites the reader to measure it
     // against a rule written in the other.
     housingShareOfTakeHome: netMonthly > 0 ? ledgerPayment.total / netMonthly : 0,
-    housingShareOfGross: grossMonthly > 0 ? ledgerPayment.total / grossMonthly : 0,
     approvalShareOfTakeHome: netMonthly > 0 ? approvalPayment.total / netMonthly : 0,
-    approvalShareOfGross: grossMonthly > 0 ? approvalPayment.total / grossMonthly : 0
+
+    // Both halves of a debt-to-income ratio, for each line. The front end is
+    // housing against gross — what 28/36's 28 measures. The back end adds every
+    // other debt payment — what its 36 measures. Printing only the front end
+    // invites it to be read against the wrong one of the two.
+    frontEnd: grossMonthly > 0 ? ledgerPayment.total / grossMonthly : 0,
+    backEnd: grossMonthly > 0 ? (ledgerPayment.total + debtsMonthly) / grossMonthly : 0,
+    approvalFrontEnd: grossMonthly > 0 ? approvalPayment.total / grossMonthly : 0,
+    approvalBackEnd: grossMonthly > 0 ? (approvalPayment.total + debtsMonthly) / grossMonthly : 0
   };
 }
