@@ -123,16 +123,50 @@ else's advice.
 
 ## Saving and sharing
 
-"Save to this device" writes to `localStorage` and never leaves the browser. "Copy share
-code" packs the state into a base64 string you can send by text or email; the recipient
-pastes it into "Paste a code". A link can't carry the data reliably — the page is often
-opened inside another app's viewer, which doesn't hand the script the URL — so the code
-is the transport.
+There are two tiers, on purpose.
+
+**The in-tab draft** is written automatically to `sessionStorage` as you type. It
+survives a refresh, the back button and a restored tab, and the browser destroys it when
+the tab closes. It exists so a stray reload doesn't cost you twenty minutes of typing.
+
+**"Save to this device"** writes to `localStorage` and outlives the tab. It is deliberately
+something you ask for rather than the default: the page knows your salary, your debts and
+what you have put by, and leaving that on a library or office machine for whoever sits
+down next would undo the promise the rest of the site makes. Once you've saved once,
+changes autosave.
+
+On load an explicit save wins over a draft — it outlived a tab, so it's the newer intent —
+and is announced with a banner. A draft is restored quietly, since it's the same tab you
+typed it into. "Clear saved" clears both.
+
+Drafts go through `hydrate()` like anything else, so a tampered one is sanitised rather
+than trusted, and every draft call swallows its own failure — a blocked `sessionStorage`
+must never be the reason something breaks.
+
+**"Copy share code"** packs the state into a base64 string you can send by text or email;
+the recipient pastes it into "Paste a code". A link can't carry the data reliably — the
+page is often opened inside another app's viewer, which doesn't hand the script the URL —
+so the code is the transport.
 
 ## Deploying
 
-Any static host works. For GitHub Pages, serve the repository root from the branch you
-publish (`.nojekyll` is present so the `assets/` paths are served as-is).
+`.github/workflows/deploy.yml` runs the tests on every push and pull request, and
+publishes to GitHub Pages from `main` once they pass. It stages only what the site serves,
+so tests, `package.json` and this README stay off the public site.
+
+One manual step, which can only be done in the web UI:
+
+> **Settings → Pages → Build and deployment → Source: "GitHub Actions"**
+
+Until that is set the deploy job fails with "Pages site not found". After that, every push
+to `main` publishes to `https://<user>.github.io/openbook/`.
+
+Pages serves a project site from a subpath. Every path in the page is relative, so this
+works with no base-href — verified by staging the site under `/openbook/` and loading it.
+
+Pages cannot set response headers, so `_headers` is ignored there; it is staged anyway so
+moving to Cloudflare Pages or Netlify later needs no change. See **Security** for which
+headers that costs you.
 
 ## Chart colours
 

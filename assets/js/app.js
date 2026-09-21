@@ -11,7 +11,8 @@ import { compute, parseNum, itemAmount } from './calc.js';
 import { evaluateBenchmarks, scoreBenchmarks, readiness } from './guidance.js';
 import {
   createDefaultState, createEmptyState, newItem, hydrate,
-  save, load, clear, encodeShareCode, decodeShareCode
+  save, load, clear, saveDraft, loadDraft, clearDraft,
+  encodeShareCode, decodeShareCode
 } from './state.js';
 
 const $ = (id) => document.getElementById(id);
@@ -918,10 +919,12 @@ function touched() {
 
 let autosaveEnabled = false;
 
-function setSaveStatus(savedAt) {
+function setSaveStatus(savedAt, { draft = false } = {}) {
   const el = $('saveStatus');
   if (!savedAt) {
-    el.textContent = 'Not saved yet — this page forgets everything when you close it.';
+    el.textContent = draft
+      ? "Not saved to this device. Your numbers survive a refresh of this tab — close it and they're gone."
+      : 'Not saved yet — this page forgets everything when you close it.';
     return;
   }
   const date = new Date(savedAt);
@@ -940,10 +943,20 @@ function doSave(manual) {
   }
 }
 
+/**
+ * The draft is always written; the device save only once it has been asked for.
+ * Returns whether a draft is now standing, so the status line can say so.
+ */
+function persist() {
+  const drafted = saveDraft(state);
+  if (autosaveEnabled) doSave(false);
+  else if (drafted) setSaveStatus(null, { draft: true });
+  return drafted;
+}
+
 function scheduleSave() {
-  if (!autosaveEnabled) return;
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => doSave(false), 900);
+  saveTimer = setTimeout(persist, 900);
 }
 
 function applyState(next, { message, animate = true } = {}) {
@@ -1069,7 +1082,7 @@ $('btnLoadCode').addEventListener('click', () => {
     $('loadPanel').hidden = true;
     $('btnLoadToggle').setAttribute('aria-expanded', 'false');
     isExampleData = false;
-    if (autosaveEnabled) doSave(false);
+    persist();
     toast('Loaded');
   } catch (e) {
     toast("That code doesn't look right — check it copied in full", true);
@@ -1084,6 +1097,7 @@ $('btnReset').addEventListener('click', () => {
 
 $('btnClear').addEventListener('click', () => {
   try { clear(); } catch (e) { /* nothing saved */ }
+  clearDraft();
   autosaveEnabled = false;
   setSaveStatus(null);
   banner('');
@@ -1130,15 +1144,28 @@ function boot() {
   try { restored = load(); } catch (e) { restored = null; }
 
   if (restored) {
+    // An explicit save wins: it outlives the tab, so it is the newer intent.
     state = restored.state;
     isExampleData = false;
     autosaveEnabled = true;
     applyState(state, { message: 'Restored the numbers you saved here earlier.' });
     setSaveStatus(restored.savedAt);
-  } else {
-    applyState(hydrate(createDefaultState()));
-    setSaveStatus(null);
+    return;
   }
+
+  const draft = loadDraft();
+  if (draft) {
+    // Restored quietly — this is the same tab the numbers were typed into, so a
+    // banner announcing it would be telling someone what they already know.
+    state = draft;
+    isExampleData = false;
+    applyState(state);
+    setSaveStatus(null, { draft: true });
+    return;
+  }
+
+  applyState(hydrate(createDefaultState()));
+  setSaveStatus(null);
 }
 
 boot();

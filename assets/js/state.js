@@ -206,6 +206,51 @@ export function clear() {
 }
 
 /* ---------------------------------------------------------------------------
+ * The in-tab draft
+ *
+ * Saving to the device is deliberately something you ask for — this tool knows
+ * your salary, your debts and what you have put by, and silently leaving that on
+ * a library or office machine for whoever sits down next would undo the promise
+ * the rest of the page makes.
+ *
+ * Losing twenty minutes of typing to a stray refresh is a different problem, and
+ * it has a different answer: sessionStorage. A draft written here survives a
+ * reload, the back button and a restored tab, and is destroyed by the browser
+ * when the tab closes. Nothing to clean up, nothing left behind.
+ *
+ * Every call swallows its own failure. A draft is a convenience; it must never
+ * be the reason something breaks.
+ * ------------------------------------------------------------------------- */
+
+export const DRAFT_KEY = 'openbook.draft.v1';
+
+export function saveDraft(state) {
+  try {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(serialize(state)));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export function loadDraft() {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    return raw ? hydrate(JSON.parse(raw)) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+export function clearDraft() {
+  try {
+    sessionStorage.removeItem(DRAFT_KEY);
+  } catch (e) {
+    /* nothing to clear */
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * Share codes
  *
  * A link can't carry the numbers reliably — this page is often opened inside
