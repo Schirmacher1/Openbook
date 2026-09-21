@@ -43,8 +43,11 @@ assets/js/calc.js       The whole calculation, as pure functions (no DOM, no sto
 assets/js/state.js      Defaults, persistence and share codes
 assets/js/guidance.js   Published rules of thumb and the readiness checks
 assets/js/app.js        The interface: rendering, wiring, charts
+assets/js/theme.js      Pre-paint theme stamp (kept external so CSP can ban inline script)
 tests/calc.test.js      Engine tests
 tests/guidance.test.js  Rule and readiness tests
+tests/security.test.js  Untrusted-input tests for the share code
+_headers                Response headers for hosts that read them (not GitHub Pages)
 ```
 
 The split matters: `calc.js` never touches the DOM, so the same code runs in the browser
@@ -146,6 +149,65 @@ colour alone.
 | 4 | `#A8477E` | `#C06894` | PMI |
 | 5 | `#6FA33B` | `#739C3D` | HOA |
 
+## Security
+
+The site has no back end, no forms, no cookies and makes no network requests of its own,
+which removes most of the usual categories outright. What is left is one genuinely
+untrusted input and the page's own hardening.
+
+### The share code is the attack surface
+
+A share code is typed in by hand from whoever sent it, and `localStorage` is only as
+trustworthy as the browser holding it. Both go through `hydrate()` in
+`assets/js/state.js`, which rebuilds state **field by field from an allowlist** rather
+than merging:
+
+- an unknown key never survives — output is always exactly the known fields;
+- every number is finite and clamped into `LIMITS`, so `Infinity`, `NaN`, a numeric
+  string and a negative can't reach the interface;
+- every enum is checked against its own options, so a bogus `stateCode` or `filing`
+  can't index a reference table;
+- lists cap at 100 rows and labels at 120 characters, so a code can't hang the page by
+  asking it to render 200,000 rows;
+- a label is only accepted if it is already a string, so a hostile object can't get its
+  `toString` called;
+- `decodeShareCode` refuses anything over 64 KB before handing it to `atob`/`JSON.parse`.
+
+Object spread (not `Object.assign`) is used throughout, so `__proto__` in a payload
+defines an own property rather than polluting `Object.prototype`. `tests/security.test.js`
+pins all of this, including the pollution case.
+
+### Content Security Policy
+
+`index.html` carries a `default-src 'none'` policy. Script is `'self'` only — there are
+no inline `<script>` blocks and no inline `style` attributes, which is why the theme
+bootstrap lives in `assets/js/theme.js`. `connect-src 'none'` is the important one: even
+if markup injection were ever found, there is nowhere to send anything.
+
+Verified in Chromium rather than assumed — under this policy a `fetch()` to an external
+host is blocked and an injected inline `<script>` does not execute.
+
+`frame-ancestors`, `X-Content-Type-Options` and `Permissions-Policy` cannot be delivered
+by a `<meta>` tag. They live in `_headers`, which Netlify and Cloudflare Pages read.
+**GitHub Pages cannot set custom headers at all** — if you stay on Pages, the meta CSP
+still applies but those three don't, which is the main argument for putting a CDN in
+front.
+
+### Known trade-off
+
+Fonts come from Google Fonts, so loading the page tells Google an IP address requested
+it. The numbers never leave the device, and the CSP pins font traffic to
+`fonts.gstatic.com`, but self-hosting the three families would make the privacy claim
+airtight and let `style-src`/`font-src` drop to `'self'`.
+
+### Bots
+
+There is nothing to spam: no form submits, no endpoint, no database, no email. A bot can
+only fill in a calculator in its own browser. This changes the moment you add anything
+that accepts input — a contact form, an email capture, a saved-scenario back end — at
+which point the answer is a hosted form service with spam filtering, or a privacy-respecting
+challenge, not a CAPTCHA on the calculator itself.
+
 ## Affiliate slots
 
 Two slots ship switched off: mortgage-rate comparison and homeowners insurance. Set a URL
@@ -160,7 +222,10 @@ const PARTNER_LINKS = {
 
 A slot with no URL stays hidden, so the page never ships a dead `href="#"` — and, more to
 the point, never shows a "Paid link" label or a commission disclosure on a link that
-earns nothing.
+earns nothing. The footer's paid-link sentence is gated on the same check, so turning a
+slot on can't leave the disclosure behind and turning them all off can't leave a claim
+about links that aren't there. With both keys empty, as they ship, the page says nothing
+about affiliate links anywhere.
 
 When a slot is on, the disclosure sits **with** the link: a `Paid link` label beside the
 text and a full sentence directly beneath it, at 12.5px, visible without scrolling,

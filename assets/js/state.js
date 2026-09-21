@@ -6,6 +6,8 @@
  * one.
  */
 
+import { STATE_DATA, CREDIT_BANDS, FILING_LABELS, PAY_FREQ } from './data.js';
+
 const uid = (() => {
   let n = 0;
   return (prefix) => `${prefix}${++n}_${Date.now().toString(36)}`;
@@ -92,16 +94,98 @@ export function serialize(state) {
   return out;
 }
 
-/** Merge saved data over the defaults, so an older save missing a field still loads. */
+/* ---------------------------------------------------------------------------
+ * Hydration
+ *
+ * Everything that reaches hydrate() is untrusted: a share code is typed in by
+ * hand from whoever sent it, and localStorage is only as trustworthy as the
+ * browser it sits in. So state is rebuilt field by field from an allowlist
+ * rather than merged — an unknown key never survives, every number is finite
+ * and clamped, every enum is checked against its own options, and the lists
+ * have a length limit. A hostile code should be able to make the page show
+ * silly figures at worst, never hang it or print NaN.
+ * ------------------------------------------------------------------------- */
+
+/** Generous enough that nobody real hits one; tight enough to keep the page up. */
+export const LIMITS = {
+  salary: 100_000_000,
+  amount: 10_000_000,   // any monthly figure or dollar field
+  price: 1_000_000_000,
+  pct: 100,
+  items: 100,           // rows in any one list
+  label: 120,           // characters
+  city: 80,
+  id: 64,
+  shareCode: 64_000     // characters of base64
+};
+
+/** A finite number clamped to [0, max]; anything else falls back. */
+function num(value, max, fallback = 0) {
+  const n = typeof value === 'number'
+    ? value
+    : parseFloat(String(value ?? '').replace(/[^0-9.\-]/g, ''));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(Math.max(n, 0), max);
+}
+
+function oneOf(value, allowed, fallback) {
+  return allowed.includes(value) ? value : fallback;
+}
+
+/** Strings only — never coerces, so a hostile object can't run its own toString. */
+function text(value, max, fallback = '') {
+  return typeof value === 'string' ? value.slice(0, max) : fallback;
+}
+
+function sanitizeItems(raw, { allowPct }) {
+  if (!Array.isArray(raw)) return [];
+  return raw.slice(0, LIMITS.items).map((entry, i) => {
+    const item = entry && typeof entry === 'object' ? entry : {};
+    const mode = allowPct ? oneOf(item.mode, ['dollar', 'pct'], 'dollar') : 'dollar';
+    return {
+      id: text(item.id, LIMITS.id) || uid(`r${i}`),
+      label: text(item.label, LIMITS.label) || 'Untitled',
+      mode,
+      value: num(item.value, mode === 'pct' ? LIMITS.pct : LIMITS.amount),
+      // A percentage of take-home isn't defined before tax, so it can't be pre-tax.
+      pretax: mode === 'dollar' && item.pretax === true,
+      excluded: item.excluded === true
+    };
+  });
+}
+
+/** Rebuild a valid state from whatever turned up. */
 export function hydrate(data) {
   const base = createDefaultState();
-  const merged = { ...base, ...(data || {}) };
-  merged.k401 = { ...base.k401, ...(data?.k401 || {}) };
-  for (const key of ['savingsItems', 'debtItems', 'expenseItems']) {
-    merged[key] = Array.isArray(merged[key]) ? merged[key] : [];
-    merged[key] = merged[key].map((it, i) => ({ id: it.id || uid(`r${i}`), mode: 'dollar', ...it }));
-  }
-  return merged;
+  const raw = data && typeof data === 'object' ? data : {};
+  const k401 = raw.k401 && typeof raw.k401 === 'object' ? raw.k401 : {};
+  const k401Mode = oneOf(k401.mode, ['pct', 'dollar'], base.k401.mode);
+
+  return {
+    salary: num(raw.salary, LIMITS.salary, base.salary),
+    filing: oneOf(raw.filing, Object.keys(FILING_LABELS), base.filing),
+    payfreq: oneOf(raw.payfreq, Object.keys(PAY_FREQ), base.payfreq),
+    k401: {
+      mode: k401Mode,
+      type: oneOf(k401.type, ['traditional', 'roth'], base.k401.type),
+      pct: num(k401.pct, k401Mode === 'pct' ? LIMITS.pct : LIMITS.amount, 0)
+    },
+    savingsItems: sanitizeItems(raw.savingsItems, { allowPct: true }),
+    debtItems: sanitizeItems(raw.debtItems, { allowPct: false }),
+    expenseItems: sanitizeItems(raw.expenseItems, { allowPct: false }),
+    credit: oneOf(raw.credit, Object.keys(CREDIT_BANDS), base.credit),
+    term: Number(raw.term) === 15 ? 15 : 30,
+    city: text(raw.city, LIMITS.city),
+    stateCode: oneOf(raw.stateCode, Object.keys(STATE_DATA), base.stateCode),
+    downpayment: num(raw.downpayment, LIMITS.price, base.downpayment),
+    hoa: num(raw.hoa, LIMITS.amount, 0),
+    insMode: oneOf(raw.insMode, ['estimate', 'manual'], base.insMode),
+    insManual: num(raw.insManual, LIMITS.amount, base.insManual),
+    priceTestMode: oneOf(raw.priceTestMode, ['auto', 'manual'], base.priceTestMode),
+    testPrice: raw.testPrice == null ? null : num(raw.testPrice, LIMITS.price),
+    emergencyFund: num(raw.emergencyFund, LIMITS.salary, 0),
+    firstHome: raw.firstHome !== false
+  };
 }
 
 export function save(state) {
@@ -139,7 +223,11 @@ export function encodeShareCode(state) {
 }
 
 export function decodeShareCode(code) {
-  const binary = atob(String(code).trim());
+  const raw = String(code).trim();
+  // Refuse to decode something far larger than any real state, rather than
+  // handing a multi-megabyte string to atob and JSON.parse.
+  if (raw.length > LIMITS.shareCode) throw new Error('Share code is too long to be real');
+  const binary = atob(raw);
   const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
   return hydrate(JSON.parse(new TextDecoder().decode(bytes)));
 }

@@ -6,6 +6,28 @@
 <title>Openbook — what you can actually afford</title>
 <meta name="description" content="A home affordability calculator built on your take-home pay, not the biggest loan a lender would approve. Free, ad-free, and it runs entirely in your browser." />
 <meta name="color-scheme" content="light dark" />
+
+<!--
+  Openbook has no back end, so the policy below is as closed as a page can be:
+  no inline script, nothing may be fetched or sent anywhere, no forms, no
+  framing, no plugins. If a hostile share code ever did find a way to inject
+  markup, connect-src 'none' means it still has nowhere to send anything.
+
+  frame-ancestors and X-Frame-Options only take effect as real HTTP headers —
+  a <meta> tag can't set them. See README for the host config that does.
+-->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self';
+  style-src 'self' https://fonts.googleapis.com;
+  font-src https://fonts.gstatic.com;
+  img-src 'self' data:;
+  connect-src 'none';
+  form-action 'none';
+  base-uri 'none';
+  object-src 'none';
+" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="theme-color" content="#f3f6f2" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#0e1613" media="(prefers-color-scheme: dark)" />
 
@@ -20,13 +42,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="assets/css/openbook.css" />
 
-<script>
-  // Stamp the saved theme before first paint, so a dark-mode visitor never sees a white flash.
-  try {
-    var saved = localStorage.getItem('openbook.theme');
-    if (saved === 'dark' || saved === 'light') document.documentElement.setAttribute('data-theme', saved);
-  } catch (e) {}
-</script>
+<script src="assets/js/theme.js"></script>
 
 <script type="application/ld+json">
 {
@@ -119,7 +135,7 @@
               What a lender would approve
             </div>
             <div class="compare-track">
-              <div class="compare-fill fill-lender" id="lenderBar" style="width:100%"></div>
+              <div class="compare-fill fill-lender" id="lenderBar"></div>
             </div>
             <div class="compare-value" id="lenderPrice">—</div>
             <p class="compare-note" id="lenderNote">Sized to 28/36 debt-to-income on your gross pay.</p>
@@ -131,7 +147,7 @@
               What your paycheck says
             </div>
             <div class="compare-track">
-              <div class="compare-fill fill-openbook" id="openbookBar" style="width:60%"></div>
+              <div class="compare-fill fill-openbook" id="openbookBar"></div>
             </div>
             <div class="compare-value" id="openbookPrice">—</div>
             <p class="compare-note" id="openbookNote">What's left after tax, savings, debts and living.</p>
@@ -422,7 +438,7 @@
                 <label id="insLabel">Homeowners insurance</label>
                 <div class="segmented segmented-wide" id="segInsMode" role="group" aria-labelledby="insLabel"></div>
                 <div id="insManualWrap" hidden>
-                  <div class="adorned has-suffix" style="margin-top:10px">
+                  <div class="adorned has-suffix field-followup">
                     <span class="prefix">$</span><input type="text" inputmode="numeric" id="insManual" autocomplete="off" /><span class="suffix">/mo</span>
                   </div>
                 </div>
@@ -527,7 +543,7 @@
           <label id="priceModeLabel">Home price used in the housing row</label>
           <div class="segmented segmented-wide" id="segPriceMode" role="group" aria-labelledby="priceModeLabel"></div>
           <div id="testPriceWrap" hidden>
-            <div class="adorned" style="margin-top:10px"><span class="prefix">$</span><input type="text" inputmode="numeric" id="testPrice" autocomplete="off" /></div>
+            <div class="adorned field-followup"><span class="prefix">$</span><input type="text" inputmode="numeric" id="testPrice" autocomplete="off" /></div>
             <p class="hint">Try a specific asking price and watch what it does to the bottom line.</p>
           </div>
         </div>
@@ -725,9 +741,10 @@
   </div>
   <div class="shell">
     <p class="footer-fine">
-      Openbook is an independent tool and isn't affiliated with any lender, bank or insurer. Links marked
-      "Paid link" earn Openbook a commission if you use them, at no cost to you, and never change the numbers
-      shown on this page. Nothing here is financial, legal or tax advice.
+      Openbook is an independent tool and isn't affiliated with any lender, bank or insurer.
+      <span id="affiliateDisclosure" hidden>Links marked "Paid link" earn Openbook a commission if you use them,
+      at no cost to you, and never change the numbers shown on this page.</span>
+      Nothing here is financial, legal or tax advice.
     </p>
     <p class="footer-fine">© <span id="year">2026</span> Openbook.</p>
   </div>
