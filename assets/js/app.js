@@ -17,6 +17,33 @@ import {
 const $ = (id) => document.getElementById(id);
 
 /* ---------------------------------------------------------------------------
+ * Affiliate slots
+ *
+ * Put your affiliate URL against a key to turn that slot on. A slot with no URL
+ * stays hidden: each one carries a "Paid link" label and a line saying Openbook
+ * earns a commission, and neither should appear on a link that earns nothing.
+ *
+ * Both links render with rel="sponsored noopener noreferrer", and the
+ * disclosure sits with the link rather than only in the footer — the FTC's
+ * guidance is that a disclosure tucked into a footer or behind a "more" link is
+ * likely to be missed.
+ * ------------------------------------------------------------------------- */
+
+const PARTNER_LINKS = {
+  rates: '',      // mortgage-rate comparison
+  insurance: ''   // homeowners insurance
+};
+
+function mountPartnerSlots() {
+  for (const slot of document.querySelectorAll('[data-partner]')) {
+    const url = PARTNER_LINKS[slot.dataset.partner];
+    if (!url) continue;
+    slot.querySelector('.partner-link').href = url;
+    slot.hidden = false;
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * Formatting
  * ------------------------------------------------------------------------- */
 
@@ -1090,6 +1117,7 @@ $('year').textContent = String(new Date().getFullYear());
  * ------------------------------------------------------------------------- */
 
 function boot() {
+  mountPartnerSlots();
   buildLedgerRows();
 
   let restored = null;

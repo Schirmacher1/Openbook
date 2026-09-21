@@ -429,11 +429,18 @@
                 <p class="hint" id="insHint"></p>
               </div>
 
-              <!-- Affiliate slot: swap href for your mortgage-rate comparison link. -->
-              <aside class="partner">
-                <span class="partner-tag">Partner</span>
-                <span class="partner-text">Ready for real numbers? Compare live rates from vetted lenders.</span>
-                <a href="#" target="_blank" rel="sponsored noopener noreferrer">Compare rates →</a>
+              <!--
+                Affiliate slot. Stays hidden until a URL is set for it in
+                PARTNER_LINKS (assets/js/app.js) — a paid-link disclosure on a
+                link that earns nothing would be its own small untruth.
+              -->
+              <aside class="partner" data-partner="rates" hidden>
+                <div class="partner-row">
+                  <span class="partner-tag">Paid link</span>
+                  <span class="partner-text">Ready for real numbers? Compare live rates from vetted lenders.</span>
+                  <a class="partner-link" href="#" target="_blank" rel="sponsored noopener noreferrer">Compare rates →</a>
+                </div>
+                <p class="partner-disclosure">Openbook earns a commission if you use this link, at no cost to you. It has no effect on any number on this page, and none of your figures are shared.</p>
               </aside>
             </div>
 
@@ -466,11 +473,14 @@
               <div class="stat"><dt>Down payment</dt><dd id="outDown">$0</dd></div>
             </dl>
 
-            <!-- Affiliate slot: swap href for your homeowners-insurance comparison link. -->
-            <aside class="partner partner-quiet">
-              <span class="partner-tag">Partner</span>
-              <span class="partner-text">Lock this number in — compare homeowners insurance quotes.</span>
-              <a href="#" target="_blank" rel="sponsored noopener noreferrer">Get quotes →</a>
+            <!-- Affiliate slot — see the note on the rates slot above. -->
+            <aside class="partner partner-quiet" data-partner="insurance" hidden>
+              <div class="partner-row">
+                <span class="partner-tag">Paid link</span>
+                <span class="partner-text">Lock this number in — compare homeowners insurance quotes.</span>
+                <a class="partner-link" href="#" target="_blank" rel="sponsored noopener noreferrer">Get quotes →</a>
+              </div>
+              <p class="partner-disclosure">Openbook earns a commission if you use this link, at no cost to you. It has no effect on any number on this page, and none of your figures are shared.</p>
             </aside>
           </div>
 
@@ -716,8 +726,8 @@
   <div class="shell">
     <p class="footer-fine">
       Openbook is an independent tool and isn't affiliated with any lender, bank or insurer. Links marked
-      "Partner" are affiliate links — we may earn a commission if you use one, at no cost to you, and it never
-      changes the numbers shown on this page. Nothing here is financial, legal or tax advice.
+      "Paid link" earn Openbook a commission if you use them, at no cost to you, and never change the numbers
+      shown on this page. Nothing here is financial, legal or tax advice.
     </p>
     <p class="footer-fine">© <span id="year">2026</span> Openbook.</p>
   </div>

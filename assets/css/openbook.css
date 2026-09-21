@@ -771,18 +771,29 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
 /* ---- Partner slots ---- */
 
 .partner {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 9px;
-  margin-top: 18px; padding: 11px 13px;
+  margin-top: 18px; padding: 12px 14px;
   background: var(--brass-soft); border: 1px solid var(--brass-line);
-  border-radius: var(--radius-sm); font-size: 13px;
+  border-radius: var(--radius-sm);
 }
+.partner[hidden] { display: none; }
+.partner-row { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; font-size: 13px; }
+
+/* The label is the disclosure, not decoration, so it is sized to be read.
+   "Paid link" is the wording the FTC treats as adequate next to an affiliate
+   link; "Partner" or "Sponsored" leaves too much to the reader to work out. */
 .partner-tag {
-  font-size: 9.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
-  color: #fff; background: var(--brass-fill); border-radius: 999px; padding: 3px 8px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+  color: #fff; background: var(--brass-fill); border-radius: 999px; padding: 3px 9px;
 }
 .partner-text { flex: 1 1 150px; color: var(--brass-text); }
-.partner a { color: var(--brass-text); font-weight: 800; text-decoration: none; white-space: nowrap; }
-.partner a:hover { text-decoration: underline; }
+.partner-link { color: var(--brass-text); font-weight: 800; text-decoration: none; white-space: nowrap; }
+.partner-link:hover { text-decoration: underline; }
+
+/* Sits with the link and needs no interaction to read — the two things the
+   FTC's guidance is most consistently concerned with. */
+.partner-disclosure {
+  margin-top: 8px; font-size: 12.5px; line-height: 1.5; color: var(--brass-text);
+}
 
 /* ==========================================================================
    Ledger
