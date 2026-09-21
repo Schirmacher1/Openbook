@@ -1135,3 +1135,11 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
 
 /* A breached ceiling, appended to the rules verdict. */
 .verdict-alarm { color: var(--bad); }
+
+.compare-footnote {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-faint);
+}
