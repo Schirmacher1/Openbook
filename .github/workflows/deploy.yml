@@ -1,0 +1,63 @@
+# Test on every push and pull request; publish to GitHub Pages from main.
+#
+# One-time setup, which can only be done in the web UI:
+#   Settings → Pages → Build and deployment → Source: "GitHub Actions"
+# Until that is set, the deploy job fails with "Pages site not found".
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Let a running deploy finish rather than cancelling it half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # No dependencies to install — the suite runs on node:test.
+      - run: npm test
+
+  deploy:
+    name: Deploy to Pages
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Stage only what the site needs, so tests, package.json and the README
+      # aren't served from the public site.
+      - name: Stage the site
+        run: |
+          mkdir -p _site
+          cp index.html .nojekyll _headers _site/
+          cp -r assets _site/
+          echo "Staged:" && find _site -type f | sort
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
