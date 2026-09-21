@@ -160,8 +160,10 @@ test('compute: a pre-tax savings row is not also charged against take-home', () 
   const b = compute(pretax);
 
   // Pre-tax leaves before tax, so it costs less of the budget than the same
-  // amount taken after tax.
-  assert.ok(b.housingBudget > a.housingBudget);
+  // amount taken after tax. Compared on `leftover` rather than `housingBudget`
+  // because both of these households are rich enough to sit at the 28% cap,
+  // which would hide the difference.
+  assert.ok(b.leftover > a.leftover);
   assert.equal(b.savingsPostTaxMonthly, 0);
   near(a.savingsPostTaxMonthly, 200);
 });
@@ -272,4 +274,58 @@ test('compute: a back-end ratio is the front end plus the debt load', () => {
 
   // The approval model is built on a 45% total DTI, so its back end lands there.
   near(result.approvalBackEnd, 0.45, 0.0005);
+});
+
+test('compute: the housing budget never exceeds the rule\'s 28% of gross', () => {
+  // Someone with almost nothing going out would otherwise be handed every
+  // spare dollar as a mortgage payment.
+  const state = createDefaultState();
+  state.debtItems = [];
+  state.expenseItems = [];
+  state.savingsItems = [];
+  state.k401 = { pct: 0, mode: 'pct', type: 'traditional' };
+
+  const result = compute(state);
+  assert.ok(result.leftover > result.ruleCap, 'this household should have spare income');
+  assert.ok(result.cappedByRule, 'the cap must bind here');
+  near(result.housingBudget, result.ruleCap, 0.01);
+  near(result.estimateFrontEnd, 0.28, 0.0005);
+});
+
+test('compute: the cap leaves the paycheck test in charge when it is tighter', () => {
+  const result = compute(createDefaultState());
+  assert.ok(result.leftover < result.ruleCap, 'the example household is under the cap');
+  assert.equal(result.cappedByRule, false);
+  near(result.housingBudget, result.leftover, 0.01);
+});
+
+test('compute: a capped budget shows the held-back money as unallocated', () => {
+  const state = createDefaultState();
+  state.expenseItems = [];
+  state.debtItems = [];
+  const result = compute(state);
+
+  assert.ok(result.cappedByRule);
+  // The difference isn't lost — it shows up as income the plan hasn't spent.
+  assert.ok(result.ledger.unallocated > 1);
+  near(result.ledger.unallocated, result.leftover - result.housingBudget, 1);
+  // ...and it must not be explained away as a PMI-tier rounding sliver.
+  assert.equal(result.pmiTierLimited, false);
+});
+
+test('compute: every household lands inside the rule on housing', () => {
+  const cases = [
+    (s) => { s.salary = 40000; },
+    (s) => { s.salary = 250000; s.expenseItems = []; s.debtItems = []; },
+    (s) => { s.debtItems = []; s.savingsItems = []; },
+    (s) => { s.stateCode = 'TX'; s.expenseItems = []; },
+    (s) => { s.filing = 'mfj'; s.salary = 180000; s.expenseItems = []; }
+  ];
+  for (const mutate of cases) {
+    const state = createDefaultState();
+    mutate(state);
+    const result = compute(state);
+    assert.ok(result.estimateFrontEnd <= 0.28 + 0.0005,
+      `housing came to ${(result.estimateFrontEnd * 100).toFixed(1)}% of gross, over the rule`);
+  }
 });

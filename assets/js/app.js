@@ -549,7 +549,12 @@ function renderCompare(result) {
     $('lenderDti'), result.approvalFrontEnd, result.approvalBackEnd,
     "A lender doesn't apply the 28/36 rule. Here's how far past it this goes:"
   );
-  renderDtiCheck($('openbookDti'), result.estimateFrontEnd, result.estimateBackEnd);
+  renderDtiCheck(
+    $('openbookDti'), result.estimateFrontEnd, result.estimateBackEnd,
+    result.cappedByRule
+      ? 'Held at the rule\'s limit — your paycheck would have allowed more:'
+      : 'Set by what your paycheck leaves, and capped at the rule either way:'
+  );
 
   const gap = lender - openbook;
   const chip = $('deltaChip');
@@ -709,7 +714,10 @@ function renderLedger(result) {
 
   $('ledgerNetHint').textContent = ledger.usingTestPrice
     ? `What's left over — or short — each month if you buy at that price instead of the ${money(result.price)} estimate.`
-    : result.pmiTierLimited
+    : result.cappedByRule
+      ? `This is money your paycheck could have put toward a house, held back because the payment is capped at ${
+        pct(DTI_FRONT_END)} of gross — the 28/36 rule's limit. Spending it on housing would take you past the rule.`
+      : result.pmiTierLimited
       ? `This sits a little above $0 because your estimated price lands right on a mortgage-insurance pricing tier. One dollar more of house would push PMI into a costlier tier and overshoot your budget by more than the extra house is worth, leaving ${money(net)}/mo unused. That's how tiered PMI works, not an error.`
       : net < -1
         ? "This is negative because savings, debts and expenses already use up your whole take-home pay — even a house bought outright at your down payment still costs more each month in insurance and HOA than you have left."
@@ -929,6 +937,11 @@ function paint({ animate = false } = {}) {
   $('takeHomeLabel').textContent = result.freq.label;
   $('takeHomeNumber').textContent = money(result.takeHomePerPeriod);
   $('housingBudget').textContent = `${money(result.housingBudget)}/mo`;
+  $('housingBudgetNote').textContent = result.cappedByRule
+    ? `Your paycheck would leave ${money(result.leftover)}, but this is held to ${
+      pct(DTI_FRONT_END)} of gross — the most the 28/36 rule allows on housing. The rule is the tighter of the two here.`
+    : "What's left each month after savings, debts and living costs — before any mortgage, tax, insurance or HOA. It's the tighter of the two tests here; the rule would allow "
+      + `${money(result.ruleCap)}.`;
 
   // --- lender flag ---
   const gap = result.approval.price - result.price;

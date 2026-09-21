@@ -227,7 +227,17 @@ export function compute(state) {
     .filter((it) => !it.pretax)
     .reduce((sum, it) => sum + parseNum(it.value), 0);
 
-  const housingBudget = Math.max(0, netMonthly - savingsPostTaxMonthly - debtsMonthly - expensesMonthly);
+  // What's actually left once everything the person listed is paid for.
+  const leftover = Math.max(0, netMonthly - savingsPostTaxMonthly - debtsMonthly - expensesMonthly);
+
+  // ...but never more than the 28/36 rule allows on housing. Without this the
+  // budget is simply "every spare dollar", which for anyone with light expenses
+  // recommends a payment no adviser would stand behind. The cap only ever
+  // lowers the figure, so the recommendation is the stricter of the two tests:
+  // what your paycheck leaves, and what the rule permits.
+  const ruleCap = grossMonthly * DTI_FRONT_END;
+  const housingBudget = Math.min(leftover, ruleCap);
+  const cappedByRule = leftover > ruleCap + 0.01;
 
   const model = housingModel(state);
   const price = housingBudget > 0 ? solvePrice(housingBudget, model) : model.downpayment;
@@ -283,10 +293,14 @@ export function compute(state) {
     expensesMonthly,
     expensesTotalMonthly: expensesMonthly + expensePretaxMonthly,
     housingBudget,
+    leftover,
+    ruleCap,
+    cappedByRule,
     model,
     price,
     payment,
-    pmiTierLimited: !usingTestPrice && housingBudget > 0 && unallocated > 1 && isPmiTierLimited(price, model),
+    pmiTierLimited: !usingTestPrice && !cappedByRule && housingBudget > 0 && unallocated > 1
+      && isPmiTierLimited(price, model),
     approval: { housingBudget: approvalBudget, price: approvalPrice, payment: approvalPayment },
     ruleOfThumb: { housingBudget: ruleOfThumbBudget, price: ruleOfThumbPrice, payment: ruleOfThumbPayment },
     ledger: { usingTestPrice, payment: ledgerPayment, debits, debitsTotal, unallocated },
