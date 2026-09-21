@@ -8,6 +8,7 @@
 
 import { STATE_DATA, CREDIT_BANDS, INS_TIER_TEXT, FILING_LABELS, DTI_FRONT_END, DTI_BACK_END } from './data.js';
 import { compute, parseNum, itemAmount } from './calc.js';
+import { evaluateBenchmarks, scoreBenchmarks, readiness } from './guidance.js';
 import {
   createDefaultState, createEmptyState, newItem, hydrate,
   save, load, clear, encodeShareCode, decodeShareCode
@@ -618,6 +619,151 @@ function renderLedger(result) {
 }
 
 /* ---------------------------------------------------------------------------
+ * Rules of thumb
+ * ------------------------------------------------------------------------- */
+
+const CHECK_GLYPH = { pass: '\u2713', caution: '!', fail: '\u2715', unknown: '?' };
+
+/**
+ * One row per benchmark: the price it allows, as a bar, direct-labelled with
+ * both the figure and a verdict — so nothing here is carried by colour alone.
+ * The ceiling rule also gets a hatched fill, because it's a limit, not a target.
+ */
+function renderBenchmarks(result) {
+  const evaluated = evaluateBenchmarks(result, state);
+  const max = Math.max(...evaluated.map((b) => b.price), 1);
+  const sorted = [...evaluated].sort((a, b) => b.price - a.price);
+
+  const list = $('ruleRows');
+  list.textContent = '';
+
+  for (const benchmark of sorted) {
+    const row = document.createElement('li');
+    row.className = 'rule-row';
+    row.classList.toggle('is-you', Boolean(benchmark.isYou));
+    row.classList.toggle('is-ceiling', Boolean(benchmark.isCeiling));
+
+    const head = document.createElement('div');
+    head.className = 'rule-head';
+    const name = document.createElement('span');
+    name.className = 'rule-name';
+    name.textContent = benchmark.name;
+    const basis = document.createElement('span');
+    basis.className = 'rule-basis';
+    basis.textContent = benchmark.rule;
+    head.append(name, basis);
+
+    const track = document.createElement('div');
+    track.className = 'rule-track';
+    const fill = document.createElement('div');
+    fill.className = 'rule-fill';
+    fill.style.width = `${(benchmark.price / max) * 100}%`;
+    track.appendChild(fill);
+    attachTip(track, `${benchmark.name} · up to ${money(benchmark.price)} · ${money(benchmark.budget)}/mo`);
+
+    const figures = document.createElement('div');
+    figures.className = 'rule-figures';
+    const price = document.createElement('span');
+    price.className = 'rule-price';
+    price.textContent = money(benchmark.price);
+
+    const chip = document.createElement('span');
+    chip.className = 'verdict-chip';
+    if (benchmark.isYou) {
+      chip.classList.add('is-you');
+      chip.innerHTML = '<span class="chip-icon" aria-hidden="true">\u25CF</span>';
+      chip.append('Your plan');
+    } else if (benchmark.fits) {
+      chip.classList.add('is-pass');
+      chip.innerHTML = '<span class="chip-icon" aria-hidden="true">\u2713</span>';
+      chip.append('Fits');
+    } else {
+      chip.classList.add('is-over');
+      chip.innerHTML = '<span class="chip-icon" aria-hidden="true">\u25B2</span>';
+      chip.append(`${money(benchmark.over)}/mo over`);
+    }
+    figures.append(price, chip);
+
+    const note = document.createElement('details');
+    note.className = 'rule-note';
+    const summary = document.createElement('summary');
+    summary.textContent = benchmark.isYou ? 'What this line is' : 'Where this number comes from';
+    const body = document.createElement('p');
+    body.textContent = `${benchmark.note} It allows ${money(benchmark.budget)} a month — ${
+      pct(benchmark.shareOfTakeHome)} of your take-home pay, ${pct(benchmark.shareOfGross)} of gross.`;
+    note.append(summary, body);
+    if (benchmark.url) {
+      const link = document.createElement('a');
+      link.href = benchmark.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = `Read ${benchmark.source} on this \u2192`;
+      const wrap = document.createElement('p');
+      wrap.appendChild(link);
+      note.appendChild(wrap);
+    }
+
+    row.append(head, track, figures, note);
+    list.appendChild(row);
+  }
+
+  // --- headline verdict ---
+  // Measured against the payment actually on the table: the affordability
+  // estimate normally, or the price typed into the ledger's what-if.
+  const score = scoreBenchmarks(evaluated);
+  const missed = evaluated.filter((b) => !b.isYou && !b.fits);
+  const planned = result.ledger.payment;
+  const opening = result.ledger.usingTestPrice
+    ? `A ${money(planned.price)} house — ${money(planned.total)} a month —`
+    : `At ${money(planned.total)} a month, your plan`;
+
+  $('rulesScore').textContent = `${score.passed} of ${score.total}`;
+
+  const verdict = $('rulesVerdict');
+  verdict.textContent = '';
+  if (score.passed === score.total) {
+    verdict.innerHTML = `${opening} clears <strong>all ${score.total}</strong> of them.`;
+  } else if (score.passed === 0) {
+    verdict.innerHTML = `${opening} is above <strong>every one</strong> of them. That is the clearest signal there is to look at a cheaper house, or a bigger down payment.`;
+  } else {
+    const names = missed.map((b) => b.name).join(' and ');
+    verdict.innerHTML = `${opening} clears <strong>${score.passed} of ${score.total}</strong> — it comes in over ${names}.`;
+  }
+
+  return evaluated;
+}
+
+function renderReadiness(result) {
+  const list = $('readinessList');
+  list.textContent = '';
+
+  for (const check of readiness(result, state)) {
+    const item = document.createElement('li');
+
+    const mark = document.createElement('span');
+    mark.className = `check-mark is-${check.status}`;
+    mark.textContent = CHECK_GLYPH[check.status] || '?';
+    mark.setAttribute('role', 'img');
+    mark.setAttribute('aria-label', `${check.status}:`);
+
+    const body = document.createElement('div');
+    const label = document.createElement('p');
+    label.className = 'check-label';
+    label.textContent = check.label;
+    const detail = document.createElement('p');
+    detail.className = 'check-detail';
+    detail.textContent = check.detail;
+    const source = document.createElement('span');
+    source.className = 'check-source';
+    source.textContent = check.source;
+    body.append(label, detail, source);
+
+    item.append(mark, body);
+    list.appendChild(item);
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * Paint
  * ------------------------------------------------------------------------- */
 
@@ -711,6 +857,8 @@ function paint({ animate = false } = {}) {
   $('taxSummaryMeta').textContent = `${pct(result.paycheck.effectiveRate, 1)} effective rate`;
 
   renderLedger(result);
+  renderBenchmarks(result);
+  renderReadiness(result);
 
   $('mobilePrice').textContent = money(result.price);
 }
@@ -780,15 +928,19 @@ function syncInputs() {
   $('downpayment').value = commas(state.downpayment);
   $('hoa').value = commas(state.hoa);
   $('insManual').value = commas(state.insManual);
+  $('emergencyFund').value = state.emergencyFund ? commas(state.emergencyFund) : '';
   $('insManualWrap').hidden = state.insMode !== 'manual';
   $('testPriceWrap').hidden = state.priceTestMode !== 'manual';
   if (state.testPrice != null) $('testPrice').value = commas(state.testPrice);
 }
 
-function wireMoneyInput(id, key) {
+function wireMoneyInput(id, key, { blankWhenZero = false } = {}) {
   const el = $(id);
   el.addEventListener('input', () => { state[key] = parseNum(el.value); touched(); });
-  el.addEventListener('blur', () => { el.value = commas(state[key]); });
+  el.addEventListener('blur', () => {
+    // An optional field stays empty rather than tidying itself to "0".
+    el.value = blankWhenZero && !state[key] ? '' : commas(state[key]);
+  });
 }
 
 function wireSelect(id, key) {
@@ -819,6 +971,7 @@ wireMoneyInput('downpayment', 'downpayment');
 wireMoneyInput('hoa', 'hoa');
 wireMoneyInput('insManual', 'insManual');
 wireMoneyInput('testPrice', 'testPrice');
+wireMoneyInput('emergencyFund', 'emergencyFund', { blankWhenZero: true });
 wireSelect('filing', 'filing');
 wireSelect('payfreq', 'payfreq');
 wireSelect('credit', 'credit');
