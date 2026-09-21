@@ -112,13 +112,24 @@ against Openbook's 36%.
 The 28/36 rule stays in the rules section as what it is: guidance, sitting alongside
 Ramsey and The Money Guy rather than standing in for a lender.
 
-**Always name the denominator.** Openbook leads with shares of take-home pay; every
-published rule is written in gross. A bare "36%" gets read against the 36 in "28/36" and
-means something else entirely, so the hero, the readiness check and the rule notes all
-print both — on the example household, 36% of take-home is 24% of gross, comfortably
-under the 28% front-end guideline. Three different numbers are in play and they are easy
-to confuse: housing over take-home, housing over gross, and housing plus all other debt
-over gross, which is what the 36 in 28/36 actually measures.
+**Always name the denominator, and print both halves of the ratio.** Three numbers are in
+play and only two of them are the 28/36 rule:
+
+| | What it is | 28/36 |
+|---|---|---|
+| `housingShareOfTakeHome` | housing ÷ take-home | not in the rule |
+| `frontEnd` | housing ÷ gross | the **28** |
+| `backEnd` | (housing + all other debt) ÷ gross | the **36** |
+
+Openbook leads with the take-home share because that's the argument, but a bare
+percentage gets measured against whichever rule the reader has in mind. The hero prints
+all three on both lines so the rule can be checked rather than taken on trust — on the
+example household: 36% of take-home, 24% front-end, 33% back-end, so it clears 28/36 on
+both counts.
+
+Printing only the front end was actively misleading on the approval line, whose housing
+share happens to be 36% of gross. Next to a rule whose second number is also 36, that
+reads as "the lender is at the 28/36 limit" when its real back-end is 45%.
 
 Two implementation details that matter:
 
