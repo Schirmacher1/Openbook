@@ -124,7 +124,7 @@
       <!-- Live comparison — driven by whatever is in the calculator below. -->
       <figure class="viz-root compare-card" id="compareCard">
         <figcaption class="compare-head">
-          <h2>Two very different answers</h2>
+          <h2>Three very different answers</h2>
           <p id="compareContext">Same salary. Same debts. Same house hunt.</p>
         </figcaption>
 
@@ -140,6 +140,18 @@
             <div class="compare-value" id="lenderPrice">—</div>
             <p class="compare-note" id="lenderNote">Sized to the debt-to-income limit underwriting actually enforces: 45% of gross counting every debt, with no separate cap on the housing share.</p>
             <div class="dti-check" id="lenderDti"></div>
+          </div>
+
+          <div class="compare-row is-rule">
+            <div class="compare-label">
+              <span class="swatch swatch-rule" aria-hidden="true"></span>
+              What the 28% rule allows
+            </div>
+            <div class="compare-track">
+              <div class="compare-fill fill-rule" id="ruleBar"></div>
+            </div>
+            <div class="compare-value" id="rulePrice">—</div>
+            <p class="compare-note" id="ruleNote">28% of gross income on housing — the classic guideline.</p>
           </div>
 
           <div class="compare-row is-openbook">

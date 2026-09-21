@@ -1162,3 +1162,7 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
 }
 
 .dti-caption { font-size: 12px; line-height: 1.5; color: var(--ink-faint); margin-bottom: 2px; }
+
+/* The published rule, sitting between the lender's ceiling and the paycheck. */
+.swatch-rule { background: var(--brass-fill); }
+.fill-rule { background: var(--brass-fill); }

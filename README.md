@@ -93,9 +93,23 @@ publicly, with a link to their own words:
 | Openbook | whatever your paycheck actually leaves | take-home, after everything you listed |
 | [Ramsey](https://www.ramseysolutions.com/real-estate/how-much-house-can-i-afford) | 25% of take-home pay, **on a 15-year fixed** | monthly take-home |
 | [The Money Guy — 3/5/25](https://moneyguy.com/guide/home-buying/) | 3% down **on a first home** (20% after that), 5 years in the home, 25% of gross | monthly gross |
-| The 28/36 rule | 28% of gross for housing, 36% including all debt — advice, not a limit | monthly gross |
+| 28% of gross on housing | the front-end half on its own — the figure people quote | monthly gross |
+| The 28/36 rule | both halves; the tighter one sets the figure, usually the 36% | monthly gross |
 | [What a lender will approve](https://selling-guide.fanniemae.com/sel/b3-6-02/debt-income-ratios) | 45% of gross counting all debt, **no front-end cap** | monthly gross |
 | [HUD cost-burden line](https://www.huduser.gov/portal/pdredge/pdr_edge_featd_article_092214.html) | 30% of gross (50% is "severely cost burdened") | monthly gross |
+
+### Show the 28% figure on its own
+
+The hero compares three prices, not two: what a lender will approve, **what 28% of gross
+allows**, and what the paycheck leaves.
+
+The middle one has to be its own line. "Don't spend more than 28% of gross on housing" is
+the sentence everybody knows, but a combined 28/36 row almost never reports it — as soon
+as there is any other debt the 36% half is tighter and sets the figure. On the example
+household the combined rule gives $2,120/mo while 28% of gross is $2,217/mo, so the
+number people actually came looking for appeared nowhere on the page. `rule28` is that
+figure, computed and displayed separately, and `ruleOfThumb.boundBy` records which half
+produced the combined one so the rules section can say so.
 
 ### Approved is not the same as affordable
 
