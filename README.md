@@ -148,10 +148,37 @@ colour alone.
 
 ## Affiliate slots
 
-Two placeholder partner links are marked in `index.html` with `href="#"` — one for
-mortgage-rate comparison, one for homeowners insurance. They carry
-`rel="sponsored noopener noreferrer"`, and the footer discloses them. They never affect
-the numbers the page shows.
+Two slots ship switched off: mortgage-rate comparison and homeowners insurance. Set a URL
+against its key in `PARTNER_LINKS` at the top of `assets/js/app.js` to turn one on:
+
+```js
+const PARTNER_LINKS = {
+  rates: '',      // mortgage-rate comparison
+  insurance: ''   // homeowners insurance
+};
+```
+
+A slot with no URL stays hidden, so the page never ships a dead `href="#"` — and, more to
+the point, never shows a "Paid link" label or a commission disclosure on a link that
+earns nothing.
+
+When a slot is on, the disclosure sits **with** the link: a `Paid link` label beside the
+text and a full sentence directly beneath it, at 12.5px, visible without scrolling,
+hovering or expanding anything. Both links carry `rel="sponsored noopener noreferrer"`.
+
+The wording is deliberate. The FTC's
+[Endorsement Guides](https://www.ftc.gov/business-guidance/resources/ftcs-endorsement-guides-what-people-are-asking)
+treat "Paid link" next to an affiliate link as adequate, and note that consumers often
+don't understand what "affiliate link" means — "Partner" or "Sponsored" leaves more to
+the reader. The same guidance is that a disclosure is likely to be missed if it appears
+only in a footer, at the end of a page, or behind a "more" link, which is why the footer
+line is a backstop rather than the disclosure itself. If you reword any of this, keep the
+label unambiguous and keep it adjacent to the link.
+
+**Before adding an affiliate relationship with anyone named in the rules-of-thumb
+section**, note that the page currently states Openbook is "not affiliated with, endorsed
+by or connected to" them. That sentence has to change if it stops being true, and the
+independence it claims is doing real work for the rest of the page.
 
 ## Licence
 
