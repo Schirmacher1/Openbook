@@ -484,8 +484,15 @@ function renderPaymentViz(payment) {
  * comparison is made on screen rather than left to the reader. A bare "24%"
  * means nothing without the 28% it is being measured against.
  */
-function renderDtiCheck(container, frontEnd, backEnd) {
+function renderDtiCheck(container, frontEnd, backEnd, caption) {
   container.textContent = '';
+
+  if (caption) {
+    const note = document.createElement('p');
+    note.className = 'dti-caption';
+    note.textContent = caption;
+    container.appendChild(note);
+  }
 
   const rows = [
     { label: 'Housing', value: frontEnd, limit: DTI_FRONT_END },
@@ -535,7 +542,13 @@ function renderCompare(result) {
   $('openbookNote').textContent = `A ${money(result.payment.total)}/mo payment — ${
     pct(result.estimateShareOfTakeHome)} of take-home pay.`;
 
-  renderDtiCheck($('lenderDti'), result.approvalFrontEnd, result.approvalBackEnd);
+  // The lender's rows are the rule being broken, not applied — said out loud,
+  // because two crosses under a heading that names a rule read like a failure
+  // on our part rather than the lender's.
+  renderDtiCheck(
+    $('lenderDti'), result.approvalFrontEnd, result.approvalBackEnd,
+    "A lender doesn't apply the 28/36 rule. Here's how far past it this goes:"
+  );
   renderDtiCheck($('openbookDti'), result.estimateFrontEnd, result.estimateBackEnd);
 
   const gap = lender - openbook;
