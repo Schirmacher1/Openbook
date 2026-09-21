@@ -239,3 +239,37 @@ test('compute: the ledger honours a manually entered test price', () => {
   // The headline estimate is untouched by the what-if price.
   assert.ok(result.price !== 250000);
 });
+
+test('compute: hero ratios describe the estimate, plan ratios follow the what-if', () => {
+  const state = createDefaultState();
+  const base = compute(state);
+
+  // With no what-if price the two sets agree, because they describe one payment.
+  near(base.estimateFrontEnd, base.frontEnd, 1e-9);
+  near(base.estimateShareOfTakeHome, base.housingShareOfTakeHome, 1e-9);
+
+  // Enter a what-if price and they must part company: the estimate is unchanged,
+  // the plan follows the price being tested.
+  state.priceTestMode = 'manual';
+  state.testPrice = 600000;
+  const tested = compute(state);
+
+  near(tested.estimateFrontEnd, base.estimateFrontEnd, 1e-9);
+  near(tested.estimateShareOfTakeHome, base.estimateShareOfTakeHome, 1e-9);
+  assert.ok(tested.frontEnd > tested.estimateFrontEnd,
+    'the plan ratio must follow the what-if price');
+
+  // Each ratio pairs with its own payment — this is the mismatch being guarded.
+  near(tested.estimateFrontEnd, tested.payment.total / tested.grossMonthly, 1e-9);
+  near(tested.frontEnd, tested.ledger.payment.total / tested.grossMonthly, 1e-9);
+});
+
+test('compute: a back-end ratio is the front end plus the debt load', () => {
+  const result = compute(createDefaultState());
+  const debtShare = result.debtsMonthly / result.grossMonthly;
+  near(result.estimateBackEnd, result.estimateFrontEnd + debtShare, 1e-9);
+  near(result.approvalBackEnd, result.approvalFrontEnd + debtShare, 1e-9);
+
+  // The approval model is built on a 45% total DTI, so its back end lands there.
+  near(result.approvalBackEnd, 0.45, 0.0005);
+});

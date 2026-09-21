@@ -6,7 +6,10 @@
  * value changes only recompute — so typing never steals your own focus.
  */
 
-import { STATE_DATA, CREDIT_BANDS, INS_TIER_TEXT, FILING_LABELS, DTI_APPROVAL, DTI_DU_CEILING } from './data.js';
+import {
+  STATE_DATA, CREDIT_BANDS, INS_TIER_TEXT, FILING_LABELS,
+  DTI_APPROVAL, DTI_DU_CEILING, DTI_FRONT_END, DTI_BACK_END
+} from './data.js';
 import { compute, parseNum, itemAmount } from './calc.js';
 import { evaluateBenchmarks, scoreBenchmarks, readiness } from './guidance.js';
 import {
@@ -476,6 +479,46 @@ function renderPaymentViz(payment) {
   }
 }
 
+/**
+ * Each ratio set against the limit the 28/36 rule actually states, so the
+ * comparison is made on screen rather than left to the reader. A bare "24%"
+ * means nothing without the 28% it is being measured against.
+ */
+function renderDtiCheck(container, frontEnd, backEnd) {
+  container.textContent = '';
+
+  const rows = [
+    { label: 'Housing', value: frontEnd, limit: DTI_FRONT_END },
+    { label: 'With your debts', value: backEnd, limit: DTI_BACK_END }
+  ];
+
+  for (const row of rows) {
+    const within = row.value <= row.limit + 0.0005;
+
+    const line = document.createElement('div');
+    line.className = 'dti-row';
+
+    const label = document.createElement('span');
+    label.className = 'dti-label';
+    label.textContent = row.label;
+
+    const figures = document.createElement('span');
+    figures.className = 'dti-figures';
+    const actual = document.createElement('strong');
+    actual.textContent = pct(row.value);
+    figures.append(actual, ` of gross · rule allows ${pct(row.limit)}`);
+
+    const mark = document.createElement('span');
+    mark.className = `dti-mark ${within ? 'is-ok' : 'is-over'}`;
+    mark.textContent = within ? '\u2713' : '\u2715';
+    mark.setAttribute('role', 'img');
+    mark.setAttribute('aria-label', within ? 'within the rule' : 'over the rule');
+
+    line.append(label, figures, mark);
+    container.appendChild(line);
+  }
+}
+
 /** The hero comparison: approved vs. affordable, both direct-labelled. */
 function renderCompare(result) {
   const lender = result.approval.price;
@@ -487,15 +530,13 @@ function renderCompare(result) {
   $('lenderPrice').textContent = money(lender);
   $('openbookPrice').textContent = money(openbook);
 
-  // Take-home share first, since it's the one the page argues from, then both
-  // halves of the gross ratio so the 28/36 rule can be checked against the
-  // figures it's actually written in.
   $('lenderNote').textContent = `A ${money(result.approval.payment.total)}/mo payment — ${
-    pct(result.approvalShareOfTakeHome)} of take-home. Against gross: ${
-    pct(result.approvalFrontEnd)} on housing, ${pct(result.approvalBackEnd)} counting your debts.`;
+    pct(result.approvalShareOfTakeHome)} of take-home pay.`;
   $('openbookNote').textContent = `A ${money(result.payment.total)}/mo payment — ${
-    pct(result.housingShareOfTakeHome)} of take-home. Against gross: ${
-    pct(result.frontEnd)} on housing, ${pct(result.backEnd)} counting your debts.`;
+    pct(result.estimateShareOfTakeHome)} of take-home pay.`;
+
+  renderDtiCheck($('lenderDti'), result.approvalFrontEnd, result.approvalBackEnd);
+  renderDtiCheck($('openbookDti'), result.estimateFrontEnd, result.estimateBackEnd);
 
   const gap = lender - openbook;
   const chip = $('deltaChip');
@@ -883,7 +924,7 @@ function paint({ animate = false } = {}) {
     flag.hidden = false;
     $('lenderFlagText').textContent = `Conventional underwriting stops at ${pct(DTI_APPROVAL)} of gross income including all your debts — and applies no cap on the housing share at all — so a lender would go to ${
       money(result.approval.price)}, ${money(gap)} more than this. That payment would take ${
-      pct(result.approvalShareOfTakeHome)} of your take-home pay instead of ${pct(result.housingShareOfTakeHome)}. Fannie Mae's automated underwriter allows up to ${pct(DTI_DU_CEILING)}.`;
+      pct(result.approvalShareOfTakeHome)} of your take-home pay instead of ${pct(result.estimateShareOfTakeHome)}. Fannie Mae's automated underwriter allows up to ${pct(DTI_DU_CEILING)}.`;
   } else {
     flag.hidden = true;
   }
