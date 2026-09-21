@@ -86,7 +86,7 @@ publicly, with a link to their own words:
 |-----------|------|-------------|
 | Openbook | whatever your paycheck actually leaves | take-home, after everything you listed |
 | [Ramsey](https://www.ramseysolutions.com/real-estate/how-much-house-can-i-afford) | 25% of take-home pay, **on a 15-year fixed** | monthly take-home |
-| [The Money Guy — 3/5/25](https://moneyguy.com/guide/home-buying/) | 3% down minimum, 5 years in the home, 25% of gross | monthly gross |
+| [The Money Guy — 3/5/25](https://moneyguy.com/guide/home-buying/) | 3% down **on a first home** (20% after that), 5 years in the home, 25% of gross | monthly gross |
 | Conventional underwriting | 28% of gross for housing, 36% including all debt | monthly gross |
 | [HUD cost-burden line](https://www.huduser.gov/portal/pdredge/pdr_edge_featd_article_092214.html) | 30% of gross (50% is "severely cost burdened") | monthly gross |
 
@@ -98,6 +98,11 @@ Two implementation details that matter:
   misstate the rule.
 - **The verdict compares the payment you're actually contemplating** — the affordability
   estimate normally, or the what-if price if you've typed one into the ledger.
+- **The 3% in 3/5/25 is a first-home allowance, not a general floor.** On any home after
+  the first, The Money Guy's figure is 20% down and the stay is five to seven years, so
+  `state.firstHome` decides which branch the down-payment check and the rule's own note
+  apply. The control sits directly above the down-payment field and the check names the
+  branch it used, so the assumption is never silent.
 
 `readiness()` covers what the sources spend most of their time on: consumer debt, the
 emergency fund, the down payment, the retirement contribution rate (Ramsey's 15% of

@@ -50,7 +50,9 @@ export const BENCHMARKS = [
     url: 'https://moneyguy.com/guide/home-buying/',
     budget: (r) => r.grossMonthly * 0.25,
     term: null,
-    note: 'The other two numbers: put at least 3% down on a first home (20% after that), and plan to stay at least five years so the transaction costs have time to pay for themselves.'
+    note: (r, state) => state.firstHome
+      ? 'The other two numbers, for a first home: put at least 3% down, and plan to stay at least five years so the transaction costs have time to pay for themselves.'
+      : 'The other two numbers, for a home after your first: put 20% down, and plan to stay five to seven years. The 3% floor is a first-home allowance only.'
   },
   {
     id: 'conventional',
@@ -97,6 +99,7 @@ export function evaluateBenchmarks(result, state) {
 
     return {
       ...benchmark,
+      note: typeof benchmark.note === 'function' ? benchmark.note(result, state) : benchmark.note,
       budget,
       price,
       over,
@@ -176,16 +179,23 @@ export function readiness(result, state) {
   }
 
   /* --- Down payment ----------------------------------------------------- */
+  // The 3% floor in 3/5/25 is a first-home allowance. On any home after that,
+  // The Money Guy's figure is 20% — the same place Ramsey starts.
   const downPct = planned.downPct;
+  const firstHome = state.firstHome !== false;
+  const floor = firstHome ? 3 : 20;
+
   checks.push({
     id: 'down',
-    label: `${downPct.toFixed(0)}% down`,
-    status: downPct >= 20 ? 'pass' : downPct >= 3 ? 'caution' : 'fail',
+    label: `${downPct.toFixed(0)}% down${firstHome ? ' on a first home' : ''}`,
+    status: downPct >= 20 ? 'pass' : downPct >= floor ? 'caution' : 'fail',
     detail: downPct >= 20
-      ? 'At or above 20%, so no mortgage insurance — what Ramsey prefers, and what The Money Guy suggests after your first home.'
-      : downPct >= 3
-        ? `The Money Guy's 3/5/25 allows as little as 3% down on a first home, provided you plan to stay five years. You'll pay ${currency(planned.pmi)}/mo in PMI until you reach 20% equity.`
-        : 'Below the 3% floor in The Money Guy\'s first-home rule, and well below the 20% that avoids mortgage insurance.',
+      ? 'At or above 20%, so no mortgage insurance — where Ramsey starts, and what The Money Guy asks for on any home after your first.'
+      : firstHome
+        ? downPct >= 3
+          ? `The Money Guy's 3/5/25 allows as little as 3% down on a first home, provided you plan to stay five years. You'll pay ${currency(planned.pmi)}/mo in PMI until you reach 20% equity.`
+          : 'Below the 3% floor that 3/5/25 allows even on a first home, and well below the 20% that avoids mortgage insurance.'
+        : `The 3% floor in 3/5/25 applies to a first home only — after that The Money Guy's figure is 20%, and Ramsey's is the same. You'd pay ${currency(planned.pmi)}/mo in PMI until you reach 20% equity.`,
     source: 'The Money Guy · Ramsey'
   });
 

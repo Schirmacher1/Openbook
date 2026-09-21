@@ -23,6 +23,7 @@ test('every benchmark is attributed and explained', () => {
     assert.ok(benchmark.name, `${benchmark.id} needs a name`);
     assert.ok(benchmark.rule, `${benchmark.id} needs its rule stated`);
     assert.ok(benchmark.note, `${benchmark.id} needs an explanation`);
+    assert.ok(['string', 'function'].includes(typeof benchmark.note), `${benchmark.id} has an odd note`);
     // Openbook is our own line; every borrowed rule must name its source.
     if (!benchmark.isYou) assert.ok(benchmark.source, `${benchmark.id} must credit a source`);
   }
@@ -136,15 +137,59 @@ test('readiness flags outstanding debt and clears a debt-free buyer', () => {
   assert.equal(readiness(compute(debtFree), debtFree).find((c) => c.id === 'debt').status, 'pass');
 });
 
-test('readiness passes a 20% down payment and cautions below it', () => {
+test('readiness passes a 20% down payment whichever home this is', () => {
+  for (const firstHome of [true, false]) {
+    const state = createDefaultState();
+    state.firstHome = firstHome;
+    state.priceTestMode = 'manual';
+    state.testPrice = state.downpayment * 5; // exactly 20%
+    assert.equal(readiness(compute(state), state).find((c) => c.id === 'down').status, 'pass');
+  }
+});
+
+test("the 3% floor is a first-home allowance, not a general one", () => {
+  const at10 = (firstHome) => {
+    const state = createDefaultState();
+    state.firstHome = firstHome;
+    state.priceTestMode = 'manual';
+    state.testPrice = state.downpayment * 10; // 10% down
+    return readiness(compute(state), state).find((c) => c.id === 'down');
+  };
+
+  // A first-time buyer at 10% is inside 3/5/25 — allowed, with PMI to pay.
+  const first = at10(true);
+  assert.equal(first.status, 'caution');
+  assert.match(first.detail, /as little as 3% down on a first home/);
+
+  // A repeat buyer at 10% is below The Money Guy's 20%, so it isn't a caution.
+  const repeat = at10(false);
+  assert.equal(repeat.status, 'fail');
+  assert.match(repeat.detail, /first home only/);
+  assert.doesNotMatch(repeat.label, /first home/);
+});
+
+test('a repeat buyer below 20% fails even at 19%', () => {
   const state = createDefaultState();
+  state.firstHome = false;
   state.priceTestMode = 'manual';
+  state.testPrice = state.downpayment / 0.19;
+  const check = readiness(compute(state), state).find((c) => c.id === 'down');
+  assert.equal(check.status, 'fail');
+});
 
-  state.testPrice = state.downpayment * 5; // exactly 20%
-  assert.equal(readiness(compute(state), state).find((c) => c.id === 'down').status, 'pass');
+test("The Money Guy's note states the branch that applies", () => {
+  const first = createDefaultState();
+  first.firstHome = true;
+  const firstNote = evaluateBenchmarks(compute(first), first).find((b) => b.id === 'moneyguy').note;
+  assert.match(firstNote, /at least 3% down/);
+  assert.match(firstNote, /five years/);
 
-  state.testPrice = state.downpayment * 10; // 10%
-  assert.equal(readiness(compute(state), state).find((c) => c.id === 'down').status, 'caution');
+  const repeat = createDefaultState();
+  repeat.firstHome = false;
+  const repeatNote = evaluateBenchmarks(compute(repeat), repeat).find((b) => b.id === 'moneyguy').note;
+  assert.match(repeatNote, /20% down/);
+  assert.match(repeatNote, /five to seven years/);
+  assert.match(repeatNote, /first-home allowance only/);
 });
 
 test('readiness counts only the 401(k) toward the retirement rate, and says so', () => {
