@@ -9,7 +9,7 @@
 import {
   BRACKETS, STD_DED, ADDL_MEDICARE_THRESHOLD, SS_WAGE_BASE, SS_RATE,
   MEDICARE_RATE, ADDL_MEDICARE_RATE, PAY_FREQ, CREDIT_BANDS, TERM_15_DISCOUNT,
-  STATE_DATA, INS_TIER_RATE, DTI_FRONT_END, DTI_BACK_END
+  STATE_DATA, INS_TIER_RATE, DTI_FRONT_END, DTI_BACK_END, DTI_APPROVAL
 } from './data.js';
 
 /* ---------------------------------------------------------------------------
@@ -233,14 +233,22 @@ export function compute(state) {
   const price = housingBudget > 0 ? solvePrice(housingBudget, model) : model.downpayment;
   const payment = model.paymentAt(price);
 
-  // What conventional underwriting would sign off on: 28% of gross for housing,
-  // 36% of gross for housing plus every other debt payment — whichever binds.
-  const lenderHousingBudget = Math.max(0, Math.min(
+  // What a lender will actually approve. A conventional loan applies no front-end
+  // housing cap — total debt-to-income is the constraint — so this is one
+  // subtraction, not a min() against 28% of gross. See DTI_APPROVAL.
+  const approvalBudget = Math.max(0, grossMonthly * DTI_APPROVAL - debtsMonthly);
+  const approvalPrice = approvalBudget > 0 ? solvePrice(approvalBudget, model) : model.downpayment;
+  const approvalPayment = model.paymentAt(approvalPrice);
+
+  // The 28/36 rule of thumb, kept separate because it is advice rather than
+  // underwriting: housing under 28% of gross, everything under 36%, whichever
+  // binds first.
+  const ruleOfThumbBudget = Math.max(0, Math.min(
     grossMonthly * DTI_FRONT_END,
     grossMonthly * DTI_BACK_END - debtsMonthly
   ));
-  const lenderPrice = lenderHousingBudget > 0 ? solvePrice(lenderHousingBudget, model) : model.downpayment;
-  const lenderPayment = model.paymentAt(lenderPrice);
+  const ruleOfThumbPrice = ruleOfThumbBudget > 0 ? solvePrice(ruleOfThumbBudget, model) : model.downpayment;
+  const ruleOfThumbPayment = model.paymentAt(ruleOfThumbPrice);
 
   // The Income & debits ledger can be run against the estimate or a price you type in.
   const usingTestPrice = state.priceTestMode === 'manual';
@@ -279,10 +287,11 @@ export function compute(state) {
     price,
     payment,
     pmiTierLimited: !usingTestPrice && housingBudget > 0 && unallocated > 1 && isPmiTierLimited(price, model),
-    lender: { housingBudget: lenderHousingBudget, price: lenderPrice, payment: lenderPayment },
+    approval: { housingBudget: approvalBudget, price: approvalPrice, payment: approvalPayment },
+    ruleOfThumb: { housingBudget: ruleOfThumbBudget, price: ruleOfThumbPrice, payment: ruleOfThumbPayment },
     ledger: { usingTestPrice, payment: ledgerPayment, debits, debitsTotal, unallocated },
     // Share of take-home pay going to housing — the number a lender never asks about.
     housingShareOfTakeHome: netMonthly > 0 ? ledgerPayment.total / netMonthly : 0,
-    lenderShareOfTakeHome: netMonthly > 0 ? lenderPayment.total / netMonthly : 0
+    approvalShareOfTakeHome: netMonthly > 0 ? approvalPayment.total / netMonthly : 0
   };
 }

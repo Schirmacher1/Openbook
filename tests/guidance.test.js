@@ -100,10 +100,39 @@ test('a modest plan clears every rule', () => {
   assert.equal(score.passed, score.total);
 });
 
-test('scoring never counts Openbook as one of the rules', () => {
+test('scoring counts the guidance rules only — not Openbook, not the ceilings', () => {
   const state = createDefaultState();
   const evaluated = evaluateBenchmarks(compute(state), state);
-  assert.equal(scoreBenchmarks(evaluated).total, evaluated.length - 1);
+  const score = scoreBenchmarks(evaluated);
+
+  const ceilings = evaluated.filter((b) => b.isCeiling).length;
+  assert.ok(ceilings >= 2, 'the cost-burden line and the approval limit are both ceilings');
+  assert.equal(score.total, evaluated.length - 1 - ceilings);
+
+  // Coming in under a limit is not an achievement, so it earns no credit.
+  assert.ok(score.passed <= score.total);
+  assert.ok(evaluated.find((b) => b.id === 'approval').isCeiling);
+  assert.ok(evaluated.find((b) => b.id === 'hud').isCeiling);
+});
+
+test('a breached ceiling is reported separately from a missed rule', () => {
+  const state = createDefaultState();
+  state.priceTestMode = 'manual';
+  state.testPrice = 2_000_000; // past everything, approval included
+  const score = scoreBenchmarks(evaluateBenchmarks(compute(state), state));
+
+  assert.equal(score.passed, 0);
+  assert.equal(score.ceilingsBreached.length, 2);
+  assert.ok(score.ceilingsBreached.some((b) => b.id === 'approval'));
+});
+
+test('a plan inside every rule breaches no ceiling', () => {
+  const state = createDefaultState();
+  state.priceTestMode = 'manual';
+  state.testPrice = 120000;
+  const score = scoreBenchmarks(evaluateBenchmarks(compute(state), state));
+  assert.equal(score.passed, score.total);
+  assert.equal(score.ceilingsBreached.length, 0);
 });
 
 /* -------------------------------------------------------------------------- */

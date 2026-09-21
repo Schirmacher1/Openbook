@@ -6,7 +6,7 @@
  * value changes only recompute — so typing never steals your own focus.
  */
 
-import { STATE_DATA, CREDIT_BANDS, INS_TIER_TEXT, FILING_LABELS, DTI_FRONT_END, DTI_BACK_END } from './data.js';
+import { STATE_DATA, CREDIT_BANDS, INS_TIER_TEXT, FILING_LABELS, DTI_APPROVAL, DTI_DU_CEILING } from './data.js';
 import { compute, parseNum, itemAmount } from './calc.js';
 import { evaluateBenchmarks, scoreBenchmarks, readiness } from './guidance.js';
 import {
@@ -478,7 +478,7 @@ function renderPaymentViz(payment) {
 
 /** The hero comparison: approved vs. affordable, both direct-labelled. */
 function renderCompare(result) {
-  const lender = result.lender.price;
+  const lender = result.approval.price;
   const openbook = result.price;
   const max = Math.max(lender, openbook, 1);
 
@@ -487,8 +487,8 @@ function renderCompare(result) {
   $('lenderPrice').textContent = money(lender);
   $('openbookPrice').textContent = money(openbook);
 
-  $('lenderNote').textContent = `A ${money(result.lender.payment.total)}/mo payment — ${
-    pct(result.lenderShareOfTakeHome)} of your take-home pay.`;
+  $('lenderNote').textContent = `A ${money(result.approval.payment.total)}/mo payment — ${
+    pct(result.approvalShareOfTakeHome)} of your take-home pay.`;
   $('openbookNote').textContent = `A ${money(result.payment.total)}/mo payment — ${
     pct(result.housingShareOfTakeHome)} of your take-home pay.`;
 
@@ -498,7 +498,7 @@ function renderCompare(result) {
     chip.textContent = `${money(gap)} of "approved" you probably shouldn't spend`;
     chip.hidden = false;
   } else if (gap < -1000) {
-    chip.textContent = `${money(-gap)} more than a lender's rule of thumb allows`;
+    chip.textContent = `${money(-gap)} more than a lender would approve`;
     chip.hidden = false;
   } else {
     chip.textContent = 'Both answers land in the same place';
@@ -713,9 +713,11 @@ function renderBenchmarks(result) {
       chip.innerHTML = '<span class="chip-icon" aria-hidden="true">\u25CF</span>';
       chip.append('Your plan');
     } else if (benchmark.fits) {
+      // "Fits" suits a rule you're meeting; a ceiling you're merely under is
+      // not the same claim.
       chip.classList.add('is-pass');
       chip.innerHTML = '<span class="chip-icon" aria-hidden="true">\u2713</span>';
-      chip.append('Fits');
+      chip.append(benchmark.isCeiling ? 'Under' : 'Fits');
     } else {
       chip.classList.add('is-over');
       chip.innerHTML = '<span class="chip-icon" aria-hidden="true">\u25B2</span>';
@@ -750,7 +752,7 @@ function renderBenchmarks(result) {
   // Measured against the payment actually on the table: the affordability
   // estimate normally, or the price typed into the ledger's what-if.
   const score = scoreBenchmarks(evaluated);
-  const missed = evaluated.filter((b) => !b.isYou && !b.fits);
+  const missed = score.missed;
   const planned = result.ledger.payment;
   const opening = result.ledger.usingTestPrice
     ? `A ${money(planned.price)} house — ${money(planned.total)} a month —`
@@ -767,6 +769,16 @@ function renderBenchmarks(result) {
   } else {
     const names = missed.map((b) => b.name).join(' and ');
     verdict.innerHTML = `${opening} clears <strong>${score.passed} of ${score.total}</strong> — it comes in over ${names}.`;
+  }
+
+  // A breached ceiling is a different order of problem from a missed rule.
+  for (const ceiling of score.ceilingsBreached) {
+    const extra = document.createElement('span');
+    extra.className = 'verdict-alarm';
+    extra.textContent = ceiling.id === 'approval'
+      ? ' A lender would not approve it either.'
+      : ` It is also past ${ceiling.name.toLowerCase()}.`;
+    verdict.appendChild(extra);
   }
 
   return evaluated;
@@ -860,13 +872,13 @@ function paint({ animate = false } = {}) {
   $('housingBudget').textContent = `${money(result.housingBudget)}/mo`;
 
   // --- lender flag ---
-  const gap = result.lender.price - result.price;
+  const gap = result.approval.price - result.price;
   const flag = $('lenderFlag');
   if (gap > 1000) {
     flag.hidden = false;
-    $('lenderFlagText').textContent = `Conventional underwriting (${pct(DTI_FRONT_END)} of gross for housing, ${
-      pct(DTI_BACK_END)} including other debt) would stretch to ${money(result.lender.price)} — ${money(gap)} more. That payment would take ${
-      pct(result.lenderShareOfTakeHome)} of your take-home pay instead of ${pct(result.housingShareOfTakeHome)}.`;
+    $('lenderFlagText').textContent = `Conventional underwriting stops at ${pct(DTI_APPROVAL)} of gross income including all your debts — and applies no cap on the housing share at all — so a lender would go to ${
+      money(result.approval.price)}, ${money(gap)} more than this. That payment would take ${
+      pct(result.approvalShareOfTakeHome)} of your take-home pay instead of ${pct(result.housingShareOfTakeHome)}. Fannie Mae's automated underwriter allows up to ${pct(DTI_DU_CEILING)}.`;
   } else {
     flag.hidden = true;
   }

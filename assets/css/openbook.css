@@ -1132,3 +1132,6 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
   display: block; font-family: var(--font-display); font-size: 1.5rem; font-weight: 600;
   color: var(--accent-text); margin-top: 2px; line-height: 1.2;
 }
+
+/* A breached ceiling, appended to the rules verdict. */
+.verdict-alarm { color: var(--bad); }
