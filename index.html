@@ -151,6 +151,7 @@
             </div>
             <div class="compare-value" id="openbookPrice">—</div>
             <p class="compare-note" id="openbookNote">What's left after tax, savings, debts and living.</p>
+            <p class="compare-footnote">Shares of <strong>take-home</strong> are what you actually bank; the published rules are written in <strong>gross</strong>, so both are shown.</p>
           </div>
         </div>
 
@@ -674,6 +675,10 @@
         <details>
           <summary>Is my financial information sent anywhere?</summary>
           <div class="details-body"><p>No. There's no back end to send it to. The whole calculation runs in JavaScript in your browser tab. "Save to this device" writes to your browser's own local storage, which never leaves your machine, and "Clear saved" deletes it.</p></div>
+        </details>
+        <details>
+          <summary>Your percentages are of take-home. Isn't the 28/36 rule 28%?</summary>
+          <div class="details-body"><p>It is, but it's 28% of <em>gross</em> — and the shares Openbook leads with are of take-home pay, which is a smaller number, so the same payment looks like a bigger percentage. On the example household the payment is 36% of take-home and 24% of gross, so it sits comfortably under the 28% front-end guideline even though the larger figure catches your eye first. Both are shown side by side for exactly this reason. Watch out for the other coincidence too: the 36 in "28/36" means housing <em>plus every other debt</em> measured against gross, which is a third thing again.</p></div>
         </details>
         <details>
           <summary>Why is your number lower than my pre-approval?</summary>

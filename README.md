@@ -112,6 +112,14 @@ against Openbook's 36%.
 The 28/36 rule stays in the rules section as what it is: guidance, sitting alongside
 Ramsey and The Money Guy rather than standing in for a lender.
 
+**Always name the denominator.** Openbook leads with shares of take-home pay; every
+published rule is written in gross. A bare "36%" gets read against the 36 in "28/36" and
+means something else entirely, so the hero, the readiness check and the rule notes all
+print both — on the example household, 36% of take-home is 24% of gross, comfortably
+under the 28% front-end guideline. Three different numbers are in play and they are easy
+to confuse: housing over take-home, housing over gross, and housing plus all other debt
+over gross, which is what the 36 in 28/36 actually measures.
+
 Two implementation details that matter:
 
 - **Ramsey's line is solved on a 15-year loan** regardless of the term selected in the

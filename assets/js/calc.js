@@ -290,8 +290,13 @@ export function compute(state) {
     approval: { housingBudget: approvalBudget, price: approvalPrice, payment: approvalPayment },
     ruleOfThumb: { housingBudget: ruleOfThumbBudget, price: ruleOfThumbPrice, payment: ruleOfThumbPayment },
     ledger: { usingTestPrice, payment: ledgerPayment, debits, debitsTotal, unallocated },
-    // Share of take-home pay going to housing — the number a lender never asks about.
+    // Both denominators, because they are the whole argument. Take-home is the
+    // number a lender never asks about; gross is the one every published rule is
+    // written in. Quoting one without naming it invites the reader to measure it
+    // against a rule written in the other.
     housingShareOfTakeHome: netMonthly > 0 ? ledgerPayment.total / netMonthly : 0,
-    approvalShareOfTakeHome: netMonthly > 0 ? approvalPayment.total / netMonthly : 0
+    housingShareOfGross: grossMonthly > 0 ? ledgerPayment.total / grossMonthly : 0,
+    approvalShareOfTakeHome: netMonthly > 0 ? approvalPayment.total / netMonthly : 0,
+    approvalShareOfGross: grossMonthly > 0 ? approvalPayment.total / grossMonthly : 0
   };
 }
