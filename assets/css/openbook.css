@@ -232,6 +232,9 @@ a { color: var(--accent-text); }
   vertical-align: 3px;
 }
 
+/* A field revealed by the control above it. */
+.field-followup { margin-top: 10px; }
+
 .hint { font-size: 13px; line-height: 1.5; color: var(--ink-faint); margin-top: 8px; }
 .optional { font-weight: 500; color: var(--ink-faint); text-transform: none; letter-spacing: 0; }
 .divider { height: 1px; background: var(--border); margin: 18px 0; }
@@ -405,6 +408,7 @@ a { color: var(--accent-text); }
   overflow: hidden;
 }
 .compare-fill {
+  width: 0;
   height: 100%;
   border-radius: 6px;
   transition: width .5s cubic-bezier(.22, .61, .36, 1);

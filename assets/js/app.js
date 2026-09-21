@@ -35,12 +35,18 @@ const PARTNER_LINKS = {
 };
 
 function mountPartnerSlots() {
+  let anyLive = false;
   for (const slot of document.querySelectorAll('[data-partner]')) {
     const url = PARTNER_LINKS[slot.dataset.partner];
     if (!url) continue;
     slot.querySelector('.partner-link').href = url;
     slot.hidden = false;
+    anyLive = true;
   }
+  // The footer's paid-link sentence appears with the first live slot and stays
+  // hidden until then — so turning a slot on can't leave the disclosure behind,
+  // and turning them all off can't leave a claim about links that aren't there.
+  $('affiliateDisclosure').hidden = !anyLive;
 }
 
 /* ---------------------------------------------------------------------------
