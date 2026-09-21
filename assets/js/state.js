@@ -52,7 +52,9 @@ export function createDefaultState() {
     insMode: 'estimate',
     insManual: 120,
     priceTestMode: 'auto',
-    testPrice: null
+    testPrice: null,
+    // Optional: only the readiness checks use it, and they say so when it's blank.
+    emergencyFund: 0
   };
 }
 
@@ -78,7 +80,7 @@ export function newItem(kind, overrides = {}) {
 const PERSISTED_KEYS = [
   'salary', 'filing', 'payfreq', 'k401', 'savingsItems', 'debtItems', 'expenseItems',
   'credit', 'term', 'city', 'stateCode', 'downpayment', 'hoa', 'insMode', 'insManual',
-  'priceTestMode', 'testPrice'
+  'priceTestMode', 'testPrice', 'emergencyFund'
 ];
 
 export function serialize(state) {

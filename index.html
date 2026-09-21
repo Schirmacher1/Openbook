@@ -58,7 +58,7 @@
     <nav class="nav-links" aria-label="Sections">
       <a href="#how">How it works</a>
       <a href="#calculator">Calculator</a>
-      <a href="#difference">Why it's different</a>
+      <a href="#rules">Rules of thumb</a>
       <a href="#faq">FAQ</a>
     </nav>
 
@@ -407,6 +407,12 @@
               </div>
 
               <div class="field">
+                <label for="emergencyFund">Emergency fund already saved <span class="optional">optional</span></label>
+                <div class="adorned"><span class="prefix">$</span><input type="text" inputmode="numeric" id="emergencyFund" autocomplete="off" placeholder="0" /></div>
+                <p class="hint">Not part of the affordability maths — it's only used by the readiness checks below, which every source agrees come before the payment.</p>
+              </div>
+
+              <div class="field">
                 <label id="insLabel">Homeowners insurance</label>
                 <div class="segmented segmented-wide" id="segInsMode" role="group" aria-labelledby="insLabel"></div>
                 <div id="insManualWrap" hidden>
@@ -470,6 +476,12 @@
             <p class="result-figure" id="housingBudget">$0</p>
             <p class="result-sub">What's left each month after savings, debts and living costs — before any mortgage, tax, insurance or HOA.</p>
           </div>
+
+          <a class="result-card result-card-link" href="#rules" id="rulesSummary">
+            <span class="result-eyebrow">Against the published rules</span>
+            <span class="rules-score" id="rulesScore">—</span>
+            <span class="result-sub">Ramsey, The Money Guy, conventional underwriting and the federal cost-burden line, run against your numbers →</span>
+          </a>
 
           <div class="result-card result-card-flag" id="lenderFlag" hidden>
             <h3>A lender would go higher</h3>
@@ -545,6 +557,45 @@
     </div>
   </section>
 
+  <!-- ===================== RULES OF THUMB ===================== -->
+  <section class="section section-rules" id="rules">
+    <div class="shell">
+      <header class="section-head">
+        <span class="eyebrow">Rules of thumb</span>
+        <h2>How your plan measures up</h2>
+        <p>The best-known guidance, run against your own numbers. They disagree with each other — about whether to measure gross or take-home, and over how many years — and seeing exactly where they part company is more useful than picking one.</p>
+      </header>
+
+      <p class="rules-verdict" id="rulesVerdict">—</p>
+
+      <figure class="viz-root rules-chart">
+        <figcaption class="rules-caption">
+          <span>Most expensive home each rule allows</span>
+          <span class="rules-key">
+            <span class="key-item"><span class="swatch swatch-openbook" aria-hidden="true"></span> Your paycheck</span>
+            <span class="key-item"><span class="swatch swatch-lender" aria-hidden="true"></span> Published rule</span>
+            <span class="key-item"><span class="swatch swatch-ceiling" aria-hidden="true"></span> Warning line</span>
+          </span>
+        </figcaption>
+        <ol class="rule-rows" id="ruleRows"></ol>
+      </figure>
+
+      <div class="readiness">
+        <h3>What comes before the payment</h3>
+        <p class="readiness-sub">Every source here spends more time on what comes before the mortgage than on the mortgage. Openbook checks what it can see.</p>
+        <ul class="readiness-list" id="readinessList"></ul>
+      </div>
+
+      <p class="disclaimer">
+        Each rule above is a summary of guidance its source publishes. Openbook is not affiliated with, endorsed by
+        or connected to Ramsey Solutions, The Money Guy Show, or the U.S. Department of Housing and Urban
+        Development — their names appear because their guidance is worth measuring against, and the links go to
+        their own words. Summaries lose nuance, so follow a link before you act on one. Nothing here is financial
+        advice.
+      </p>
+    </div>
+  </section>
+
   <!-- ===================== DIFFERENCE ===================== -->
   <section class="section section-alt" id="difference">
     <div class="shell">
@@ -597,6 +648,14 @@
           <div class="details-body"><p>Because a pre-approval is a ceiling, not a recommendation. It's calculated on gross pay and the debts a credit bureau can see. It doesn't know you're putting 10% into a 401(k), paying $300 in health premiums or saving for childcare. Openbook subtracts all of it first — so the number is smaller, and it's the one you can live with.</p></div>
         </details>
         <details>
+          <summary>Ramsey, The Money Guy, the 28/36 rule — which one should I follow?</summary>
+          <div class="details-body"><p>They're measuring different things, which is why they disagree. Ramsey's 25% is of <em>take-home</em> pay and assumes a 15-year loan, so it lands lowest by some distance. The Money Guy's 25% is of <em>gross</em> income. The 28/36 rule is also gross, and is what a lender will approve rather than what it advises. The federal cost-burden line at 30% of gross is a statistical threshold, not a recommendation. Openbook's own number is none of these: it's your take-home pay minus the things you actually spend it on. Run all five, see where yours falls, and treat the ones you miss as questions rather than verdicts.</p></div>
+        </details>
+        <details>
+          <summary>Why is Ramsey's number so much lower than everything else?</summary>
+          <div class="details-body"><p>Two reasons compounding. First, 25% of take-home pay is a much smaller figure than 25% of gross — tax alone is usually a fifth to a third of the difference. Second, the rule specifies a 15-year fixed mortgage, and a 15-year payment is roughly 35% higher than a 30-year one on the same loan. Openbook prices that line on 15 years because that's what the rule says; pricing it on 30 would be quoting the number without the condition attached to it.</p></div>
+        </details>
+        <details>
           <summary>How accurate is the tax calculation?</summary>
           <div class="details-body"><p>Federal tax uses the published marginal brackets and standard deduction for your filing status, plus Social Security and Medicare including the additional Medicare surtax. State tax uses each state's own published rate or brackets, applied to the same taxable-income base — it doesn't model state-specific deductions or credits, and local income tax isn't included. Treat it as a solid estimate, not a return.</p></div>
         </details>
@@ -643,6 +702,7 @@
     <nav class="footer-links" aria-label="Footer">
       <a href="#how">How it works</a>
       <a href="#calculator">Calculator</a>
+      <a href="#rules">Rules of thumb</a>
       <a href="#faq">FAQ</a>
       <a href="#" target="_blank" rel="noopener noreferrer">Support</a>
     </nav>

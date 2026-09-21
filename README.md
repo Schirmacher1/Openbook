@@ -41,8 +41,10 @@ assets/css/openbook.css Design tokens and every component
 assets/js/data.js       Tax brackets, per-state data, credit tiers, insurance tiers
 assets/js/calc.js       The whole calculation, as pure functions (no DOM, no storage)
 assets/js/state.js      Defaults, persistence and share codes
+assets/js/guidance.js   Published rules of thumb and the readiness checks
 assets/js/app.js        The interface: rendering, wiring, charts
 tests/calc.test.js      Engine tests
+tests/guidance.test.js  Rule and readiness tests
 ```
 
 The split matters: `calc.js` never touches the DOM, so the same code runs in the browser
@@ -64,6 +66,8 @@ and under `npm test`.
 4. **The lender comparison.** The same solver run against conventional underwriting:
    28% of gross monthly income for housing, 36% including all other debt, whichever
    binds first.
+5. **The rules of thumb.** The same solver again, once per published benchmark — see
+   below.
 
 ### What it doesn't model
 
@@ -71,6 +75,43 @@ State-specific deductions, exemptions and credits; local or city income tax; a f
 smaller states use a simplified approximation of their real brackets. Mortgage rate, PMI,
 property tax and insurance are broad national estimates by credit tier and state, not
 quotes. Openbook sizes a price around your own budget, not a lender's maximum.
+
+## Rules of thumb
+
+`assets/js/guidance.js` runs the best-known published guidance against the same numbers
+and shows where each lands. Every benchmark is a summary of what its source states
+publicly, with a link to their own words:
+
+| Benchmark | Rule | Measured on |
+|-----------|------|-------------|
+| Openbook | whatever your paycheck actually leaves | take-home, after everything you listed |
+| [Ramsey](https://www.ramseysolutions.com/real-estate/how-much-house-can-i-afford) | 25% of take-home pay, **on a 15-year fixed** | monthly take-home |
+| [The Money Guy — 3/5/25](https://moneyguy.com/guide/home-buying/) | 3% down minimum, 5 years in the home, 25% of gross | monthly gross |
+| Conventional underwriting | 28% of gross for housing, 36% including all debt | monthly gross |
+| [HUD cost-burden line](https://www.huduser.gov/portal/pdredge/pdr_edge_featd_article_092214.html) | 30% of gross (50% is "severely cost burdened") | monthly gross |
+
+Two implementation details that matter:
+
+- **Ramsey's line is solved on a 15-year loan** regardless of the term selected in the
+  form, because the rule specifies one. A 15-year payment is far higher, which is why
+  that line usually comes out lowest. Quoting the 25% without the term attached would
+  misstate the rule.
+- **The verdict compares the payment you're actually contemplating** — the affordability
+  estimate normally, or the what-if price if you've typed one into the ledger.
+
+`readiness()` covers what the sources spend most of their time on: consumer debt, the
+emergency fund, the down payment, the retirement contribution rate (Ramsey's 15% of
+gross, The Money Guy's 25%) and housing as a share of income. The retirement check
+deliberately counts the 401(k) only and says so — Openbook can't see an IRA, a brokerage
+account or an employer match, so anything else would be a guess. The emergency-fund check
+reports `unknown` rather than a failure when the optional balance is blank.
+
+**Attribution.** Openbook is not affiliated with, endorsed by or connected to Ramsey
+Solutions, The Money Guy Show or HUD. Their names appear because their guidance is worth
+measuring against; the page links to each source, and the disclaimer says summaries lose
+nuance. If you restate any of these rules, re-check them against the source first —
+`tests/guidance.test.js` pins each figure so a refactor can't quietly reword someone
+else's advice.
 
 ## Saving and sharing
 
