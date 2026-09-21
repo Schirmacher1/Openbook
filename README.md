@@ -61,7 +61,12 @@ and under `npm test`.
    surtax. Traditional 401(k) and pre-tax payroll items reduce taxable income —
    pre-tax items reduce FICA wages too, a 401(k) doesn't.
 2. **Housing budget.** Post-tax savings, debt payments and recurring expenses come off
-   take-home pay. What survives is the budget.
+   take-home pay. What survives is the budget — **capped at 28% of gross**, the most the
+   28/36 rule allows on housing, so the recommendation is the stricter of the two tests.
+   Without that cap the budget is simply "every spare dollar", which for anyone with
+   light expenses recommends a payment no adviser would stand behind. When the cap binds,
+   the held-back money shows in the ledger as unallocated income with an explanation,
+   rather than vanishing.
 3. **Home price.** A bisection solve for the largest price whose full monthly payment —
    principal and interest, property tax, homeowners insurance, PMI and HOA — fits that
    budget. Bisection (rather than an algebraic inverse) because PMI steps at
@@ -131,7 +136,14 @@ With your debts   33% of gross · rule allows 36%   ✓
 ```
 
 The approval line gets the same two rows and fails both (36% and 45%), which makes the
-argument without a word of copy.
+argument without a word of copy. Its rows carry a caption saying a lender doesn't apply
+the rule — two red crosses under a heading naming one otherwise read as a failure on
+Openbook's part rather than the lender's.
+
+Note that neither 36% nor 24% is set anywhere. Both fall out: 36% is what's left for
+housing after 45% of gross minus the debt load, and 24% is what the household's paycheck
+leaves. Change the debts and the lender's figure moves on its own — no debts gives 45%,
+$1,500 of debts gives 26%.
 
 There are two sets of these ratios, because two payments are in play. `estimate*`
 describes the affordability estimate and drives the hero. The unprefixed `frontEnd` /
