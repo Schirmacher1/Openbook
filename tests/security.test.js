@@ -159,3 +159,85 @@ test('unicode survives the round trip', () => {
   const state = { ...createDefaultState(), city: 'Zürich · 日本 · café' };
   assert.equal(decodeShareCode(encodeShareCode(state)).city, 'Zürich · 日本 · café');
 });
+
+/* ---------------------------------------------------------------------------
+ * The in-tab draft
+ * ------------------------------------------------------------------------- */
+
+/** Minimal Storage stand-in; `failing` models a browser that blocks storage. */
+function fakeStorage({ failing = false } = {}) {
+  const map = new Map();
+  const boom = () => { throw new Error('storage blocked'); };
+  return {
+    getItem: (k) => (failing ? boom() : (map.has(k) ? map.get(k) : null)),
+    setItem: (k, v) => (failing ? boom() : map.set(k, String(v))),
+    removeItem: (k) => (failing ? boom() : map.delete(k)),
+    _map: map
+  };
+}
+
+async function withSessionStorage(storage, fn) {
+  const original = globalThis.sessionStorage;
+  Object.defineProperty(globalThis, 'sessionStorage', { value: storage, configurable: true, writable: true });
+  try { return await fn(); }
+  finally {
+    if (original === undefined) delete globalThis.sessionStorage;
+    else Object.defineProperty(globalThis, 'sessionStorage', { value: original, configurable: true, writable: true });
+  }
+}
+
+test('a draft round-trips through the same sanitiser as a share code', async () => {
+  const { saveDraft, loadDraft, clearDraft, DRAFT_KEY } = await import('../assets/js/state.js');
+  const storage = fakeStorage();
+
+  await withSessionStorage(storage, () => {
+    assert.equal(loadDraft(), null, 'no draft to begin with');
+
+    const state = { ...createDefaultState(), salary: 123456 };
+    assert.equal(saveDraft(state), true);
+
+    const restored = loadDraft();
+    assert.equal(restored.salary, 123456);
+    assert.equal(restored.debtItems.length, state.debtItems.length);
+
+    clearDraft();
+    assert.equal(loadDraft(), null, 'cleared');
+  });
+});
+
+test('a tampered draft is sanitised, not trusted', async () => {
+  const { loadDraft, DRAFT_KEY } = await import('../assets/js/state.js');
+  const storage = fakeStorage();
+  storage.setItem(DRAFT_KEY, JSON.stringify({
+    salary: Infinity,
+    evilKey: 'payload',
+    debtItems: Array.from({ length: 5000 }, () => ({ label: 'x'.repeat(500), value: 1 }))
+  }));
+
+  await withSessionStorage(storage, () => {
+    const draft = loadDraft();
+    assert.equal(Object.keys(draft).sort().join(), Object.keys(createDefaultState()).sort().join());
+    assert.equal(draft.evilKey, undefined);
+    assert.equal(draft.debtItems.length, LIMITS.items);
+    assert.equal(draft.debtItems[0].label.length, LIMITS.label);
+    assertNoBadNumbers(draft, 'tampered draft');
+  });
+});
+
+test('a draft never throws, whatever the browser does', async () => {
+  const { saveDraft, loadDraft, clearDraft, DRAFT_KEY } = await import('../assets/js/state.js');
+
+  // Storage blocked outright, as in some private-browsing modes.
+  await withSessionStorage(fakeStorage({ failing: true }), () => {
+    assert.equal(saveDraft(createDefaultState()), false, 'reports failure rather than throwing');
+    assert.equal(loadDraft(), null);
+    assert.doesNotThrow(() => clearDraft());
+  });
+
+  // Storage present but holding junk.
+  const junk = fakeStorage();
+  junk.setItem(DRAFT_KEY, 'not json at all');
+  await withSessionStorage(junk, () => {
+    assert.equal(loadDraft(), null, 'unparseable draft is ignored, not fatal');
+  });
+});
