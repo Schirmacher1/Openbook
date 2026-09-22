@@ -6,10 +6,14 @@
  * value changes only recompute — so typing never steals your own focus.
  */
 
-import { STATE_DATA, CREDIT_BANDS, INS_TIER_TEXT, FILING_LABELS, DTI_FRONT_END, RATES_AS_OF } from './data.js';
+import {
+  STATE_DATA, CREDIT_BANDS, INS_TIER_TEXT, FILING_LABELS, DTI_FRONT_END, RATES_AS_OF,
+  CLOSING_FEE_RANGE, ESCROW_MONTHS_TAX, ESCROW_MONTHS_INSURANCE
+} from './data.js';
 import { compute, parseNum, itemAmount } from './calc.js';
 import { evaluateBenchmarks, scoreBenchmarks, readiness } from './guidance.js';
 import { compareLedgers, COMPARE_LIMIT } from './compare.js';
+import { levers, debtRateNote } from './levers.js';
 import {
   createDefaultState, createEmptyState, newItem, hydrate,
   save, load, clear, saveDraft, loadDraft, clearDraft,
@@ -365,6 +369,31 @@ function renderLineList(containerId, items, options) {
 
     controls.appendChild(valueField(item, options));
 
+    // Optional, debts only. The payment is what a lender counts; the balance is
+    // what clearing it costs. Without the second, the page can say what a lever
+    // is worth but not what pulling it takes.
+    if (options.allowBalance) {
+      const wrap = document.createElement('label');
+      wrap.className = 'line-balance';
+      const text = document.createElement('span');
+      text.textContent = 'Balance';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.inputMode = 'numeric';
+      input.placeholder = 'optional';
+      input.value = item.balance ? commas(item.balance) : '';
+      input.setAttribute('aria-label', `Balance left on ${item.label || 'this debt'}`);
+      input.addEventListener('input', () => {
+        item.balance = parseNum(input.value);
+        touched();
+      });
+      input.addEventListener('blur', () => {
+        input.value = item.balance ? commas(item.balance) : '';
+      });
+      wrap.append(text, input);
+      controls.appendChild(wrap);
+    }
+
     if (options.allowPretax && item.mode !== 'pct') {
       const pretax = document.createElement('button');
       pretax.type = 'button';
@@ -386,7 +415,7 @@ function renderLists() {
     allowPct: true, allowPretax: true, emptyText: 'No savings items yet — add one below.'
   });
   renderLineList('debtsList', state.debtItems, {
-    allowPct: false, allowPretax: false, emptyText: 'No debts. Enviable.'
+    allowPct: false, allowPretax: false, allowBalance: true, emptyText: 'No debts. Enviable.'
   });
   renderLineList('expensesList', state.expenseItems, {
     allowPct: false, allowPretax: true, emptyText: 'No recurring expenses yet — add one below.'
@@ -904,6 +933,97 @@ function renderBenchmarks(result) {
   return evaluated;
 }
 
+/* ---------------------------------------------------------------------------
+ * Cash at closing, and the levers
+ * ------------------------------------------------------------------------- */
+
+function renderCash(result) {
+  const cash = result.cash;
+  setMoney($('cashTotal'), cash.total);
+  $('cashDown').textContent = money(cash.down);
+  $('cashFees').textContent = money(cash.fees);
+  $('cashEscrow').textContent = money(cash.escrowTax + cash.escrowInsurance + cash.prepaidInterest);
+  $('cashFeesLabel').textContent = `Fees (${CLOSING_FEE_RANGE[0]}%–${CLOSING_FEE_RANGE[1]}% of the price)`;
+
+  $('cashNote').textContent =
+    `${money(cash.costs)} of that is on top of the down payment: lender and title fees, `
+    + `${ESCROW_MONTHS_TAX} months of property tax and ${ESCROW_MONTHS_INSURANCE} of insurance into escrow, `
+    + 'and interest from closing to month end. Transfer taxes vary enormously by state, so treat the fee line as a '
+    + 'national middle rather than a quote — and remember none of this changes the monthly payment, only whether you '
+    + 'can get to the table.';
+}
+
+/**
+ * One line per change worth considering, each priced in house and in money a
+ * month. A gain and a trade look different because they are different.
+ */
+function renderLevers(result) {
+  const list = $('leverList');
+  list.textContent = '';
+
+  const all = levers(result, state, CREDIT_BANDS);
+  if (!all.length) {
+    const none = document.createElement('li');
+    none.className = 'lever lever-none';
+    none.textContent = 'Nothing obvious left to pull: no debts, 20% down, the best credit tier. That is the good ending.';
+    list.appendChild(none);
+    $('leverNote').textContent = '';
+    return;
+  }
+
+  for (const lever of all) {
+    const item = document.createElement('li');
+    item.className = `lever is-${lever.kind}`;
+
+    const head = document.createElement('div');
+    head.className = 'lever-head';
+    const title = document.createElement('h3');
+    title.className = 'lever-title';
+    title.textContent = lever.title;
+
+    const figure = document.createElement('p');
+    figure.className = 'lever-figure';
+    const sign = lever.gainPrice >= 0 ? '+' : '\u2212';
+    figure.textContent = `${sign}${money(Math.abs(lever.gainPrice))}`;
+    const unit = document.createElement('span');
+    unit.className = 'lever-unit';
+    unit.textContent = lever.gainPrice >= 0 ? 'of house' : 'of house';
+    figure.appendChild(unit);
+    head.append(title, figure);
+
+    const detail = document.createElement('p');
+    detail.className = 'lever-detail';
+    detail.textContent = lever.detail;
+
+    const meta = document.createElement('p');
+    meta.className = 'lever-meta';
+    const bits = [];
+    if (lever.cost) bits.push(`${money(lever.cost)} ${lever.costLabel}`);
+    if (lever.gainMonthly) {
+      bits.push(lever.gainMonthly > 0
+        ? `${money(lever.gainMonthly)}/mo freed`
+        : `${money(Math.abs(lever.gainMonthly))}/mo more`);
+    }
+    meta.textContent = bits.join('  ·  ');
+
+    item.append(head, detail);
+    if (bits.length) item.appendChild(meta);
+    if (lever.note) {
+      const note = document.createElement('p');
+      note.className = 'lever-note';
+      note.textContent = lever.note;
+      item.appendChild(note);
+    }
+    list.appendChild(item);
+  }
+
+  // The rate comparison people actually want, without pretending to know a
+  // rate nobody entered.
+  $('leverNote').textContent = all.some((l) => l.kind === 'debt')
+    ? `${debtRateNote()} Each figure above assumes everything else stays as it is, so they don't add up — pulling two levers is not the sum of pulling each.`
+    : 'Each figure above assumes everything else stays as it is, so they don\'t add up — pulling two levers is not the sum of pulling each.';
+}
+
 function renderReadiness(result) {
   const list = $('readinessList');
   list.textContent = '';
@@ -1020,8 +1140,10 @@ function paint({ animate = false } = {}) {
     : 'Used as a flat monthly premium at any price.';
 
   renderLedger(result);
+  renderCash(result);
   renderBenchmarks(result);
   renderReadiness(result);
+  renderLevers(result);
 
   $('mobilePrice').textContent = money(result.price);
 }

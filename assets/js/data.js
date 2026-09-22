@@ -81,6 +81,41 @@ export const CREDIT_BANDS = {
   '300': { rate30: 9.40, pmiMult: 4.20, label: 'Below 580 (Poor)' }
 };
 
+/**
+ * Cash at closing, beyond the down payment.
+ *
+ * Lender and third-party fees — origination, appraisal, title insurance and
+ * search, attorney, recording, survey — run about 1.5%-3% of the price
+ * nationally (September 2026). The spread between states is enormous, because
+ * transfer taxes and title practice are local: New York averages near $16,800
+ * and Missouri near $2,100 on the same transaction. 2% is the point estimate;
+ * CLOSING_FEE_RANGE is what the page quotes around it.
+ *
+ * Prepaids are not estimated at all — they are computed from this buyer's own
+ * property tax and insurance, because the calculator already knows both. A
+ * lender typically collects a few months of tax and a full year of insurance
+ * into escrow at closing, plus interest from the closing date to the end of
+ * that month.
+ */
+export const CLOSING_FEE_PCT = 2.0;
+export const CLOSING_FEE_RANGE = [1.5, 3.0];
+export const ESCROW_MONTHS_TAX = 3;
+export const ESCROW_MONTHS_INSURANCE = 12;
+export const PREPAID_INTEREST_DAYS = 15;
+
+/**
+ * Typical auto-loan APRs (Bankrate / Experian, September 2026), used only to
+ * say why clearing a car loan is usually the first lever worth pulling. Nothing
+ * is calculated from them: Openbook never asks what rate you are paying.
+ */
+export const AUTO_LOAN_APR = { new: 6.4, used: 11.4 };
+
+/**
+ * The down-payment percentages mortgage insurance prices at, and the one where
+ * it stops. calc.pmiBaseForDownPct() steps at exactly these.
+ */
+export const PMI_TIERS = [3, 5, 10, 15, 20];
+
 /** The most a modelled PMI rate may reach, in percent of the loan a year. */
 export const PMI_RATE_CAP = 2.25;
 

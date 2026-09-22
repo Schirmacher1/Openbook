@@ -9,7 +9,8 @@
 import {
   BRACKETS, STD_DED, ADDL_MEDICARE_THRESHOLD, SS_WAGE_BASE, SS_RATE,
   MEDICARE_RATE, ADDL_MEDICARE_RATE, PAY_FREQ, CREDIT_BANDS, TERM_15_DISCOUNT,
-  STATE_DATA, INS_TIER_RATE, DTI_FRONT_END, DTI_BACK_END, DTI_APPROVAL, PMI_RATE_CAP
+  STATE_DATA, INS_TIER_RATE, DTI_FRONT_END, DTI_BACK_END, DTI_APPROVAL, PMI_RATE_CAP,
+  CLOSING_FEE_PCT, ESCROW_MONTHS_TAX, ESCROW_MONTHS_INSURANCE, PREPAID_INTEREST_DAYS
 } from './data.js';
 
 /* ---------------------------------------------------------------------------
@@ -192,6 +193,29 @@ export function isPmiTierLimited(price, model) {
   return tierNudged > tierNow;
 }
 
+/**
+ * What you have to bring to the closing table.
+ *
+ * The down payment is the part everyone knows about and the only part this
+ * calculator used to model, which quietly implied that someone with $40,000
+ * saved can put $40,000 down. They can't: the fees and the escrow a lender
+ * collects up front come out of the same pot, and they are not small.
+ *
+ * Nothing here changes the monthly payment, so nothing here changes what you
+ * can afford month to month. It changes whether the purchase can happen at all,
+ * which is a different question the page had not been asking.
+ */
+export function cashToClose(payment, model) {
+  const fees = payment.price * (CLOSING_FEE_PCT / 100);
+  const escrowTax = payment.tax * ESCROW_MONTHS_TAX;
+  const escrowInsurance = payment.insurance * ESCROW_MONTHS_INSURANCE;
+  const prepaidInterest = payment.loan * (model.rate / 100 / 365) * PREPAID_INTEREST_DAYS;
+  const down = Math.max(0, payment.price - payment.loan);
+  const costs = fees + escrowTax + escrowInsurance + prepaidInterest;
+
+  return { down, fees, escrowTax, escrowInsurance, prepaidInterest, costs, total: down + costs };
+}
+
 /* ---------------------------------------------------------------------------
  * The whole picture
  * ------------------------------------------------------------------------- */
@@ -346,6 +370,10 @@ export function compute(state) {
       // Which half of 28/36 produced the figure — the 36 usually wins.
       boundBy: ruleOfThumbBudget < rule28Budget - 0.01 ? 'back' : 'front'
     },
+    // Cash at closing for the payment actually on the table — the estimate
+    // normally, or the what-if price once one is entered.
+    cash: cashToClose(ledgerPayment, model),
+
     ledger: {
       usingTestPrice, payment: ledgerPayment,
       grossMonthly, deductions, deductionsTotal, netMonthly,
