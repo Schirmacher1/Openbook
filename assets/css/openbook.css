@@ -1190,6 +1190,68 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
   .view-actions .btn { flex: 1 1 auto; }
 }
 
+/* --- Comparing views ---------------------------------------------------- */
+
+.view-compare {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600; color: var(--ink-soft);
+  padding: 0 8px 0 2px; cursor: pointer; user-select: none;
+}
+.view-compare input { width: 16px; height: 16px; accent-color: var(--accent-fill); cursor: pointer; }
+
+.cmp { margin-top: 16px; }
+.cmp-current {
+  display: inline-flex; align-items: center; gap: 8px; margin: 2px 0 12px;
+  font-size: 13.5px; font-weight: 600; color: var(--ink-soft); cursor: pointer;
+}
+.cmp-current input { width: 16px; height: 16px; accent-color: var(--accent-fill); cursor: pointer; }
+
+/* The table scrolls sideways rather than squeezing four columns onto a phone;
+   the row labels stay put so a figure never loses the row it belongs to. */
+.cmp-scroll { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
+
+.cmp-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.cmp-caption {
+  caption-side: bottom; text-align: left; margin-top: 10px;
+  font-size: 12.5px; line-height: 1.5; color: var(--ink-faint);
+}
+
+.cmp-table th, .cmp-table td { padding: 8px 10px; text-align: right; white-space: nowrap; }
+.cmp-table thead th { vertical-align: bottom; border-bottom: 1px solid var(--border); }
+.cmp-table thead th:first-child {
+  text-align: left; font-size: 11.5px; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.cmp-name { display: block; font-size: 13.5px; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.cmp-flag {
+  display: block; margin-top: 2px; font-size: 11px; font-weight: 600;
+  color: var(--ink-faint); white-space: normal; max-width: 150px; margin-left: auto;
+}
+.cmp-diff-head { font-size: 12px; color: var(--ink-faint); }
+
+.cmp-table tbody th {
+  text-align: left; font-weight: 500; color: var(--ink-soft);
+  position: sticky; left: 0; background: var(--surface); white-space: normal; min-width: 150px;
+}
+.cmp-table tbody td {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.cmp-row.is-deduction td { color: var(--bad); }
+.cmp-row td.is-key { font-weight: 700; }
+.cmp-row td.is-negative { color: var(--bad); }
+.cmp-diff { color: var(--ink-faint); }
+
+/* The cascade's shape, carried into the table: a line where the deductions
+   stop, and another where the debits are totted up. */
+.cmp-row.is-income th, .cmp-row.is-income td,
+.cmp-row.is-subtotal th, .cmp-row.is-subtotal td,
+.cmp-row.is-total:first-of-type th, .cmp-row.is-total:first-of-type td {
+  border-top: 1px solid var(--border-soft);
+}
+.cmp-row.is-subtotal th, .cmp-row.is-subtotal td { font-weight: 700; color: var(--ink); }
+.cmp-row.is-outcome th, .cmp-row.is-outcome td { font-size: 15px; font-weight: 700; color: var(--ink); }
+.cmp-row.is-total th { font-weight: 700; color: var(--ink); }
+
 /* ==========================================================================
    The step gate
    ========================================================================== */
