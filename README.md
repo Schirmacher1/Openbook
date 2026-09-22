@@ -45,6 +45,9 @@ assets/js/guidance.js   Published rules of thumb and the readiness checks
 assets/js/compare.js    Saved views, side by side, as pure functions
 assets/js/app.js        The interface: rendering, wiring, charts
 assets/js/theme.js      Pre-paint theme stamp (kept external so CSP can ban inline script)
+assets/css/fonts.css    @font-face rules for the self-hosted typefaces (generated)
+assets/fonts/           The woff2 files themselves, plus their licence
+scripts/fetch-fonts.mjs Regenerates both from Google Fonts
 tests/calc.test.js      Engine tests
 tests/guidance.test.js  Rule and readiness tests
 tests/security.test.js  Untrusted-input tests for the share code
@@ -259,6 +262,71 @@ measuring against; the page links to each source, and the disclaimer says summar
 nuance. If you restate any of these rules, re-check them against the source first —
 `tests/guidance.test.js` pins each figure so a refactor can't quietly reword someone
 else's advice.
+
+## Where the figures come from, and when
+
+Every market assumption carries a date, because a mortgage rate without one is
+worth very little. The page prints the date in its disclaimer; `RATES_AS_OF` in
+`assets/js/data.js` is the single place it lives.
+
+| Figure | Source | Checked |
+|---|---|---|
+| Federal brackets, standard deduction | IRS 2026 inflation adjustments | Sept 2026 |
+| Social Security wage base, Medicare surtax thresholds | SSA / statute | Sept 2026 |
+| 401(k) elective deferral limit | IRS Notice 2025-67 ($24,500) | Sept 2026 |
+| 30-year and 15-year mortgage rates | Freddie Mac PMMS, 17 Sept 2026 (6.95% / 6.26%) | Sept 2026 |
+| PMI by tier | Published MI rate cards, capped at `PMI_RATE_CAP` | Sept 2026 |
+| Property tax by state | Published 2026 effective-rate rankings, adjusted for buyers | Sept 2026 |
+
+Two of those need explaining.
+
+**Mortgage rates are anchored, not invented.** The 740-799 tier sits exactly at the
+PMMS 30-year figure, since the survey reflects what a well-qualified borrower is quoted;
+the other tiers are spread around it by roughly the loan-level price adjustments a
+conventional lender applies. The 15-year discount is the gap in the same survey week
+(6.95% − 6.26% = 0.69), which `tests/calc.test.js` pins.
+
+**Property tax is aimed at a buyer, not an owner.** Published "effective rate" tables
+divide tax paid by home value across everyone who already owns. In states that cap
+assessment growth that is not what the next buyer pays. California is the clearest case:
+Proposition 13 resets the assessment to the purchase price, so a buyer pays the 1%
+constitutional base plus voter-approved bonds — typically 1.10%-1.35% — while the
+published owner-average is 0.71%, because long-held homes are assessed far below market.
+Using the owner average understated a California buyer by about 40%, or roughly $200 a
+month on a $600,000 home. Texas caps homestead growth the same way, which is why its
+figure sits above its published owner average rather than at it.
+
+Where sources disagreed, the more conservative (higher) figure was taken: understating a
+monthly cost in an affordability calculator fails in the direction that hurts.
+
+## Performance
+
+The whole calculation is pure arithmetic and there is no framework, so the budget is
+spent on the page rather than on the maths.
+
+| | |
+|---|---|
+| `compute(state)` | 0.04 ms |
+| A full recalculation (compute + rules + readiness) | 0.07 ms |
+| Keystroke to fully repainted page | 1.7 ms median, 3 ms worst |
+| Keystroke with a four-way comparison open | 0.7 ms median |
+| First contentful paint | 180 ms |
+| Everything, gzipped | 66 KB |
+
+A keystroke runs about ten bisections of ~64 payment evaluations each — the price solver
+runs once for the estimate and again for every benchmark line — and still lands inside a
+tenth of a millisecond, so nothing is debounced and nothing needs to be.
+
+**The fonts were the whole load cost.** Three families from Google Fonts meant a
+render-blocking third-party stylesheet, then a second origin for the files: 444 ms to
+first contentful paint, against 128 ms with the request blocked. Self-hosting took FCP to
+180 ms, removed the last third-party request on the page, and let the
+Content-Security-Policy drop to `style-src 'self'; font-src 'self'`. That second part
+matters more than the milliseconds: every visitor's IP address used to reach Google
+before a single number appeared, on a page whose whole promise is that nothing leaves the
+device. `scripts/fetch-fonts.mjs` regenerates `assets/css/fonts.css` and the woff2 files;
+the `latin-ext` subsets are kept but never downloaded unless a page actually uses those
+characters, which is what `unicode-range` is for.
 
 ## Saving and sharing
 

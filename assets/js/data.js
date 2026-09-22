@@ -54,19 +54,60 @@ export const PAY_FREQ = {
  * ------------------------------------------------------------------------- */
 
 /** Broad national rate/PMI estimates by credit tier. `pmiMult` scales the LTV-based PMI base rate. */
+/**
+ * When the rate table below was last checked against the market. Shown on the
+ * page, because a mortgage rate from an unstated date is worth very little.
+ */
+export const RATES_AS_OF = 'September 2026';
+
+/**
+ * Rates by credit tier, anchored to Freddie Mac's Primary Mortgage Market
+ * Survey: 6.95% for the 30-year fixed on 17 September 2026. The survey reflects
+ * what a well-qualified borrower is quoted, so the 740-799 tier sits at the
+ * survey figure and the others are spread around it by roughly the loan-level
+ * price adjustments a conventional lender applies.
+ *
+ * `pmiMult` scales the base mortgage-insurance rate for the tier. The two
+ * lowest tiers used to multiply up to 3.6% and 5.7% a year, which is not a
+ * product anyone sells: published MI rate cards top out around 1.5%-2% at 95%
+ * loan-to-value, and conventional mortgage insurance is generally not written
+ * below a 620 score at all. PMI_RATE_CAP holds the model to that ceiling.
+ */
 export const CREDIT_BANDS = {
-  '800': { rate30: 6.60, pmiMult: 0.90, label: '800+ (Excellent)' },
-  '740': { rate30: 6.75, pmiMult: 1.15, label: '740–799 (Very good)' },
-  '670': { rate30: 7.05, pmiMult: 1.90, label: '670–739 (Good)' },
-  '580': { rate30: 7.85, pmiMult: 4.50, label: '580–669 (Fair)' },
-  '300': { rate30: 9.20, pmiMult: 8.80, label: 'Below 580 (Poor)' }
+  '800': { rate30: 6.80, pmiMult: 0.90, label: '800+ (Excellent)' },
+  '740': { rate30: 6.95, pmiMult: 1.15, label: '740–799 (Very good)' },
+  '670': { rate30: 7.25, pmiMult: 1.90, label: '670–739 (Good)' },
+  '580': { rate30: 8.05, pmiMult: 3.60, label: '580–669 (Fair)' },
+  '300': { rate30: 9.40, pmiMult: 4.20, label: 'Below 580 (Poor)' }
 };
 
-/** A 15-year fixed typically prices below a 30-year by roughly this much. */
+/** The most a modelled PMI rate may reach, in percent of the loan a year. */
+export const PMI_RATE_CAP = 2.25;
+
+/**
+ * A 15-year fixed typically prices below a 30-year by roughly this much: the
+ * same PMMS week put the 15-year at 6.26% against the 30-year's 6.95%.
+ */
 export const TERM_15_DISCOUNT = 0.69;
 
 /**
  * Per-state figures.
+ *
+ * PROPERTY TAX IS AIMED AT A BUYER, NOT AN OWNER. Published "effective rate"
+ * tables divide tax paid by home value across everyone who already owns, and in
+ * states that cap assessment growth that is not what the next buyer pays.
+ * California is the clearest case: Proposition 13 resets the assessment to the
+ * purchase price, so a buyer pays the 1% constitutional base plus voter-approved
+ * bonds — typically 1.10%-1.35% — while the published owner-average is 0.71%
+ * because long-held homes are assessed far below market. Using the owner average
+ * would understate a California buyer's tax by roughly 40%. Texas caps homestead
+ * growth the same way, which is why its figure here sits above the published
+ * owner average rather than at it.
+ *
+ * Rates verified September 2026 against published 2026 rankings; where sources
+ * disagreed the more conservative (higher) figure was taken, because
+ * understating a monthly cost in an affordability calculator fails in the
+ * direction that hurts.
  *   proptax — effective annual property tax as a % of home value
  *   ins     — homeowners-insurance cost tier, keyed into INS_TIER_RATE
  *   tax     — a flat rate (decimal) or a [lowerBound, rate] bracket table
@@ -84,15 +125,15 @@ export const STATE_DATA = {
   AK: { name: 'Alaska', proptax: 1.04, ins: 'low', tax: 0 },
   AZ: { name: 'Arizona', proptax: 0.48, ins: 'medium', tax: 0.025 },
   AR: { name: 'Arkansas', proptax: 0.52, ins: 'high', tax: [[0, 0.02], [4500, 0.039]] },
-  CA: { name: 'California', proptax: 0.71, ins: 'low', tax: [[0, 0.01], [11079, 0.02], [26264, 0.04], [41452, 0.06], [57542, 0.08], [72724, 0.093]] },
+  CA: { name: 'California', proptax: 1.15, ins: 'low', tax: [[0, 0.01], [11079, 0.02], [26264, 0.04], [41452, 0.06], [57542, 0.08], [72724, 0.093]] },
   CO: { name: 'Colorado', proptax: 0.55, ins: 'co', tax: 0.044 },
-  CT: { name: 'Connecticut', proptax: 1.54, ins: 'medium', tax: [[0, 0.02], [10000, 0.045], [50000, 0.055], [100000, 0.06], [200000, 0.065], [250000, 0.069], [500000, 0.0699]] },
+  CT: { name: 'Connecticut', proptax: 1.91, ins: 'medium', tax: [[0, 0.02], [10000, 0.045], [50000, 0.055], [100000, 0.06], [200000, 0.065], [250000, 0.069], [500000, 0.0699]] },
   DE: { name: 'Delaware', proptax: 0.53, ins: 'low', tax: [[0, 0.022], [5000, 0.039], [10000, 0.048], [20000, 0.052], [25000, 0.0555], [60000, 0.066]] },
   FL: { name: 'Florida', proptax: 0.71, ins: 'high', tax: 0 },
   GA: { name: 'Georgia', proptax: 0.72, ins: 'high', tax: 0.0539 },
   HI: { name: 'Hawaii', proptax: 0.29, ins: 'low', tax: [[0, 0.014], [9600, 0.032], [14400, 0.055], [19200, 0.064], [24000, 0.068], [36000, 0.072], [48000, 0.076], [125000, 0.079], [175000, 0.0825], [225000, 0.09], [275000, 0.10], [325000, 0.11]] },
   ID: { name: 'Idaho', proptax: 0.49, ins: 'low', tax: 0.05695 },
-  IL: { name: 'Illinois', proptax: 1.88, ins: 'medium', tax: 0.0495 },
+  IL: { name: 'Illinois', proptax: 1.96, ins: 'medium', tax: 0.0495 },
   IN: { name: 'Indiana', proptax: 0.71, ins: 'medium', tax: 0.03 },
   IA: { name: 'Iowa', proptax: 1.29, ins: 'medium', tax: 0.038 },
   KS: { name: 'Kansas', proptax: 1.19, ins: 'high', tax: [[0, 0.052], [23000, 0.0558]] },
@@ -108,8 +149,8 @@ export const STATE_DATA = {
   MT: { name: 'Montana', proptax: 0.62, ins: 'medium', tax: [[0, 0.047], [21100, 0.059]] },
   NE: { name: 'Nebraska', proptax: 1.35, ins: 'high', tax: [[0, 0.0351], [38870, 0.052]] },
   NV: { name: 'Nevada', proptax: 0.44, ins: 'low', tax: 0 },
-  NH: { name: 'New Hampshire', proptax: 1.50, ins: 'low', tax: 0 },
-  NJ: { name: 'New Jersey', proptax: 1.88, ins: 'low', tax: [[0, 0.014], [20000, 0.0175], [35000, 0.035], [40000, 0.055], [75000, 0.0637], [500000, 0.0897], [1000000, 0.1075]] },
+  NH: { name: 'New Hampshire', proptax: 1.89, ins: 'low', tax: 0 },
+  NJ: { name: 'New Jersey', proptax: 2.07, ins: 'low', tax: [[0, 0.014], [20000, 0.0175], [35000, 0.035], [40000, 0.055], [75000, 0.0637], [500000, 0.0897], [1000000, 0.1075]] },
   NM: { name: 'New Mexico', proptax: 0.61, ins: 'medium', tax: [[0, 0.015], [5500, 0.032], [16500, 0.043], [33500, 0.047], [66500, 0.049], [210000, 0.059]] },
   NY: { name: 'New York', proptax: 1.30, ins: 'low', tax: [[0, 0.04], [8500, 0.045], [11700, 0.053], [13900, 0.055], [80650, 0.06], [215400, 0.069], [1077550, 0.097], [5000000, 0.103], [25000000, 0.109]] },
   NC: { name: 'North Carolina', proptax: 0.63, ins: 'medium', tax: 0.0425 },
@@ -124,7 +165,7 @@ export const STATE_DATA = {
   TN: { name: 'Tennessee', proptax: 0.51, ins: 'medium', tax: 0 },
   TX: { name: 'Texas', proptax: 1.40, ins: 'high', tax: 0 },
   UT: { name: 'Utah', proptax: 0.48, ins: 'low', tax: 0.0455 },
-  VT: { name: 'Vermont', proptax: 1.51, ins: 'low', tax: [[0, 0.0335], [49400, 0.066], [119700, 0.076], [249700, 0.0875]] },
+  VT: { name: 'Vermont', proptax: 1.83, ins: 'low', tax: [[0, 0.0335], [49400, 0.066], [119700, 0.076], [249700, 0.0875]] },
   VA: { name: 'Virginia', proptax: 0.75, ins: 'medium', tax: [[0, 0.02], [3000, 0.03], [5000, 0.05], [17000, 0.0575]] },
   WA: { name: 'Washington', proptax: 0.76, ins: 'low', tax: 0 },
   WV: { name: 'West Virginia', proptax: 0.51, ins: 'medium', tax: [[0, 0.036], [60000, 0.0482]] },

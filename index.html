@@ -19,8 +19,8 @@
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'none';
   script-src 'self';
-  style-src 'self' https://fonts.googleapis.com;
-  font-src https://fonts.gstatic.com;
+  style-src 'self';
+  font-src 'self';
   img-src 'self' data:;
   connect-src 'none';
   form-action 'none';
@@ -37,9 +37,17 @@
 <meta name="twitter:card" content="summary_large_image" />
 
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<!--
+  The typefaces are served from here rather than from Google. Two reasons, and
+  the second is the one that matters: the third-party stylesheet was a blocking
+  request on the critical path worth ~300ms of first paint, and every visitor's
+  IP address reached Google before a single number appeared on a page whose
+  whole promise is that nothing leaves the device. Self-hosted, the policy above
+  needs no third-party origin at all. See scripts/fetch-fonts.mjs.
+-->
+<link rel="preload" href="assets/fonts/xn7gYHE41ni1AdIRggexSg.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="stylesheet" href="assets/css/fonts.css" />
 <link rel="stylesheet" href="assets/css/openbook.css" />
 
 <script src="assets/js/theme.js"></script>
@@ -454,6 +462,7 @@
                 <div class="field">
                   <label for="credit">Credit score</label>
                   <select id="credit"></select>
+                  <p class="hint" id="creditHint"></p>
                 </div>
                 <div class="field">
                   <label id="termLabel">Loan term</label>
@@ -581,6 +590,22 @@
             <span class="rules-score" id="rulesScore">—</span>
             <span class="result-sub" id="rulesSummarySub">Run against your numbers →</span>
           </a>
+
+          <!--
+            Saving lived only in the Manage menu at the top, which you have to
+            know about and scroll back to. This is where you are when you
+            finish, so the offer is here.
+          -->
+          <div class="result-card save-card reveal-on-complete">
+            <p class="result-eyebrow">Keep these numbers</p>
+            <p class="save-card-sub" id="saveCardSub">This page forgets everything when you close it. Saving keeps them on this device — nothing is uploaded.</p>
+            <div class="save-card-actions">
+              <button type="button" class="btn btn-primary btn-sm" id="btnSaveEnd">Save to this device</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btnSaveViewEnd">Save as a named view…</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btnShareEnd">Copy share code</button>
+            </div>
+            <p class="hint" id="saveStatusEnd"></p>
+          </div>
         </aside>
       </div>
 
@@ -640,8 +665,11 @@
         figure as the federal calculation — it doesn't model a state's own deductions, exemptions or credits, and a
         few smaller states use a simplified version of their real brackets. Local and city income tax (NYC, for
         instance) isn't included. Mortgage rate, PMI, property tax and insurance are broad national estimates by
-        credit tier and state, not a quote; a lender will confirm the real figures. Openbook sizes a home price
-        around your budget, not the maximum a lender might approve.
+        credit tier and state, not a quote; a lender will confirm the real figures. Rates were last checked against
+        Freddie Mac's weekly survey in <span id="ratesAsOf">—</span>. Property tax is aimed at what a
+        <em>buyer</em> pays once the home is reassessed at the price paid, which in states that cap assessment
+        growth — California above all — is well above the published average across people who already own.
+        Openbook sizes a home price around your budget, not the maximum a lender might approve.
       </p>
     </div>
   </section>

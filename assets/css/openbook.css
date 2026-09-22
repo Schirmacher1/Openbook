@@ -1159,6 +1159,15 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
   color: var(--ink-faint); letter-spacing: .01em;
 }
 
+/* The offer to keep your numbers, at the end of the form rather than only in
+   the menu at the top of the page. */
+.save-card-sub {
+  margin-top: 6px; font-size: 13px; line-height: 1.55; color: var(--ink-soft);
+}
+.save-card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.save-card-actions .btn { flex: 1 1 auto; }
+.save-card .hint { margin-top: 10px; }
+
 /* A breached ceiling, appended to the rules verdict. */
 .verdict-alarm { color: var(--bad); }
 
