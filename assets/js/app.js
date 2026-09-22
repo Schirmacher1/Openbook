@@ -192,6 +192,23 @@ function renderGate() {
   button.dataset.gotoTab = next.id;
 }
 
+/** Below 1000px the CSS stops honouring `hidden` on `.panel` (see
+ *  openbook.css) so all three render at once as a continuous scroll instead
+ *  of a one-at-a-time wizard — but the HTML `hidden` attribute itself still
+ *  reaches assistive tech regardless of what the CSS does with it, so it has
+ *  to actually come off in that layout, not just be visually overridden. */
+const isFlowLayout = () => window.matchMedia('(max-width: 999px)').matches;
+
+/** The one place that decides which panel(s) carry `hidden`: none of them,
+ *  flowing; only the inactive ones, tabbed. Called after anything that could
+ *  change either the active tab or the layout itself. */
+function syncPanelVisibility() {
+  const flow = isFlowLayout();
+  tabs.forEach((tab) => {
+    $(tab.getAttribute('aria-controls')).hidden = !flow && !tab.classList.contains('is-active');
+  });
+}
+
 /** Switches tabs and returns the panel that just became visible, so a caller
  *  that wants to scroll to it has the right element without repeating the
  *  aria-controls lookup — and a fresh one every time, unlike `#calculator`
@@ -228,8 +245,8 @@ function selectTab(id, { focus = false } = {}) {
     tab.classList.toggle('is-active', isActive);
     tab.setAttribute('aria-selected', String(isActive));
     tab.tabIndex = isActive ? 0 : -1;
-    $(tab.getAttribute('aria-controls')).hidden = !isActive;
   });
+  syncPanelVisibility();
 
   if (focus) $(id).focus();
 
@@ -286,13 +303,17 @@ function scrollToPanel(panel) {
 }
 
 tabs.forEach((tab) => {
-  tab.addEventListener('click', () => selectTab(tab.id));
+  tab.addEventListener('click', () => {
+    const panel = selectTab(tab.id);
+    if (isFlowLayout()) scrollToPanel(panel);
+  });
   tab.addEventListener('keydown', (event) => {
     const index = tabs.indexOf(tab);
     const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
     if (!step) return;
     event.preventDefault();
-    selectTab(tabs[(index + step + tabs.length) % tabs.length].id, { focus: true });
+    const panel = selectTab(tabs[(index + step + tabs.length) % tabs.length].id, { focus: true });
+    if (isFlowLayout()) scrollToPanel(panel);
   });
 });
 
@@ -305,6 +326,45 @@ document.querySelectorAll('[data-goto-tab]').forEach((button) => {
 $('gateNext').addEventListener('click', () => {
   scrollToPanel(selectTab($('gateNext').dataset.gotoTab));
 });
+
+// A resize (or a foldable/tablet rotating) can cross the 1000px line without
+// a reload — re-decide which panels carry `hidden` right when that happens,
+// not just on the next tab click.
+window.matchMedia('(max-width: 999px)').addEventListener('change', syncPanelVisibility);
+syncPanelVisibility();
+
+/**
+ * Below 1000px all three panels render at once and the page is one
+ * continuous scroll, with the "Next" / "Back" pills hidden (see
+ * syncPanelVisibility and the CSS) since there's nowhere left for them to
+ * take you. The tab bar keeps working, but its job changes from switching
+ * which panel is visible to scrolling to one and, as you pass each panel's
+ * top going down the page, saying so: it both highlights the tab and — same
+ * as a step used to only count as "done" once you clicked to it — marks
+ * that step visited, which is what lets the results reveal once you've
+ * scrolled past all three rather than only once you've tapped through them.
+ */
+let flowScrollQueued = false;
+function onFlowScroll() {
+  if (flowScrollQueued) return;
+  flowScrollQueued = true;
+  requestAnimationFrame(() => {
+    flowScrollQueued = false;
+    if (!isFlowLayout()) return;
+
+    const passLine = header.offsetHeight + 24;
+    let current = null;
+    for (const tab of tabs) {
+      const panel = $(tab.getAttribute('aria-controls'));
+      if (panel.getBoundingClientRect().top - passLine > 0) break;
+      current = tab;
+      visitedSteps.add(tab.id);
+    }
+    renderGate();
+    if (current && !current.classList.contains('is-active')) selectTab(current.id);
+  });
+}
+window.addEventListener('scroll', onFlowScroll, { passive: true });
 
 /* ---------------------------------------------------------------------------
  * Controls
