@@ -10,7 +10,7 @@ import {
   STATE_DATA, CREDIT_BANDS, INS_TIER_TEXT, FILING_LABELS, DTI_FRONT_END, RATES_AS_OF,
   CLOSING_FEE_RANGE, ESCROW_MONTHS_TAX, ESCROW_MONTHS_INSURANCE
 } from './data.js';
-import { compute, parseNum, itemAmount } from './calc.js';
+import { compute, parseNum, itemAmount, cashToClose } from './calc.js';
 import { evaluateBenchmarks, scoreBenchmarks, readiness } from './guidance.js';
 import { compareLedgers, COMPARE_LIMIT } from './compare.js';
 import { levers, debtRateNote } from './levers.js';
@@ -1022,8 +1022,16 @@ function renderCash(result) {
   $('cashEscrow').textContent = money(cash.escrowTax + cash.escrowInsurance + cash.prepaidInterest);
   $('cashFeesLabel').textContent = `Fees (${CLOSING_FEE_RANGE[0]}%–${CLOSING_FEE_RANGE[1]}% of the price)`;
 
+  // This follows whatever price is on the table in the ledger below — the
+  // estimate normally, or a what-if price once one is entered — which can
+  // genuinely differ from the "Cash to close" stat on the price card above,
+  // which is always for the estimate. Silent about it, the two numbers would
+  // just look like they disagreed.
   $('cashNote').textContent =
-    `${money(cash.costs)} of that is on top of the down payment: lender and title fees, `
+    (result.ledger.usingTestPrice
+      ? `For the ${money(result.ledger.payment.price)} price you entered below, not the estimate above. `
+      : '')
+    + `${money(cash.costs)} of that is on top of the down payment: lender and title fees, `
     + `${ESCROW_MONTHS_TAX} months of property tax and ${ESCROW_MONTHS_INSURANCE} of insurance into escrow, `
     + 'and interest from closing to month end. Transfer taxes vary enormously by state, so treat the fee line as a '
     + 'national middle rather than a quote — and remember none of this changes the monthly payment, only whether you '
@@ -1192,6 +1200,15 @@ function paint({ animate = false } = {}) {
   $('outLoan').textContent = money(result.payment.loan);
   $('outRate').textContent = `${result.model.rate.toFixed(2)}%`;
   $('outDown').textContent = `${money(result.model.downpayment)} · ${result.payment.downPct.toFixed(0)}%`;
+
+  // For THIS price specifically — result.cash (below, in the fuller
+  // breakdown) follows the ledger's what-if price instead when one is
+  // entered, so the two can differ on purpose; this one never does.
+  const estimateCash = cashToClose(result.payment, result.model);
+  $('outCash').textContent = money(estimateCash.total);
+  $('outCashNote').textContent =
+    `${money(estimateCash.costs)} of that is fees and escrow on top of the down payment above — `
+    + 'a one-time cost to get to the closing table, not a monthly one, so it never changes the price shown here. Full breakdown below.';
 
   // --- take-home & budget ---
   $('takeHomeLabel').textContent = result.freq.label;

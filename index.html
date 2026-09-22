@@ -599,7 +599,20 @@
               <div class="stat"><dt>Loan amount</dt><dd id="outLoan">$0</dd></div>
               <div class="stat"><dt>Rate</dt><dd id="outRate">—</dd></div>
               <div class="stat"><dt>Down payment</dt><dd id="outDown">$0</dd></div>
+              <!--
+                Asked directly: "is this accounting for closing costs?" The
+                honest answer is that it can't be, the same way the mortgage
+                rate can't change the price of milk: closing costs are a
+                one-time cash requirement, not a monthly one, so they have no
+                effect on what a monthly budget can afford. What was missing
+                was making that visible rather than making the page pretend
+                otherwise — this stat, and the fuller breakdown two cards
+                down, both come from cashToClose() in calc.js, computed for
+                this exact price.
+              -->
+              <div class="stat"><dt>Cash to close</dt><dd id="outCash">$0</dd></div>
             </dl>
+            <p class="result-sub" id="outCashNote"></p>
 
             <!-- Affiliate slot — see the note on the rates slot above. -->
             <aside class="partner partner-quiet" data-partner="insurance" hidden>
