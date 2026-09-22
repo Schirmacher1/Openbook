@@ -338,7 +338,7 @@
             </div>
 
             <div class="panel-nav">
-              <span></span>
+              <span class="panel-step">Step 1 of 3</span>
               <button type="button" class="btn btn-primary btn-sm" data-goto-tab="tab-outgoings">Next: money out →</button>
             </div>
           </div>
@@ -394,6 +394,7 @@
 
             <div class="panel-nav">
               <button type="button" class="btn btn-ghost btn-sm" data-goto-tab="tab-income">← Income</button>
+              <span class="panel-step">Step 2 of 3</span>
               <button type="button" class="btn btn-primary btn-sm" data-goto-tab="tab-home">Next: home &amp; loan →</button>
             </div>
           </div>
@@ -470,6 +471,7 @@
 
             <div class="panel-nav">
               <button type="button" class="btn btn-ghost btn-sm" data-goto-tab="tab-outgoings">← Money out</button>
+              <span class="panel-step">Step 3 of 3</span>
               <a class="btn btn-primary btn-sm" href="#ledger">See the full ledger →</a>
             </div>
           </div>
@@ -477,7 +479,22 @@
 
         <!-- ---------- RESULTS ---------- -->
         <aside class="calc-results" id="results" aria-label="Your results">
-          <div class="result-card viz-root">
+
+          <!--
+            Shown until all three steps have been opened. Landing straight on a
+            finished-looking total makes the remaining steps read as decoration,
+            and anchors you on a number computed from numbers you haven't
+            entered yet.
+          -->
+          <div class="result-card gate-card show-until-complete" id="stepGate">
+            <p class="result-eyebrow">Before the numbers mean anything</p>
+            <p class="gate-heading" id="gateHeading">Three quick steps</p>
+            <ol class="gate-steps" id="gateSteps"></ol>
+            <button type="button" class="btn btn-primary btn-sm" id="gateNext">Start with your income</button>
+            <p class="result-sub">The figures appear here once you've been through all three. Nothing is sent anywhere.</p>
+          </div>
+
+          <div class="result-card viz-root reveal-on-complete">
             <p class="result-eyebrow">Estimated home price you can afford</p>
             <p class="result-hero" id="homePrice">$0</p>
             <p class="result-sub" id="homePriceSub"></p>
@@ -508,7 +525,7 @@
             </aside>
           </div>
 
-          <div class="result-card result-card-soft">
+          <div class="result-card result-card-soft reveal-on-complete">
             <p class="result-eyebrow" id="takeHomeLabel">Take-home pay</p>
             <p class="result-figure" id="takeHomeNumber">$0</p>
             <div class="divider"></div>
@@ -517,7 +534,7 @@
             <p class="result-sub" id="housingBudgetNote"></p>
           </div>
 
-          <a class="result-card result-card-link" href="#rules" id="rulesSummary">
+          <a class="result-card result-card-link reveal-on-complete" href="#rules" id="rulesSummary">
             <span class="result-eyebrow">Against the published rules</span>
             <span class="rules-score" id="rulesScore">—</span>
             <span class="result-sub">Ramsey, The Money Guy, conventional underwriting and the federal cost-burden line, run against your numbers →</span>
@@ -526,7 +543,7 @@
       </div>
 
       <!-- ---------- LEDGER ---------- -->
-      <div class="card ledger-card" id="ledger">
+      <div class="card ledger-card reveal-on-complete" id="ledger">
         <h3 class="card-title">
           <span class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="14" y2="12" /><line x1="4" y1="17" x2="18" y2="17" /></svg></span>
           Where every dollar goes <span class="badge">per month</span>
@@ -563,7 +580,7 @@
       </div>
 
       <!-- ---------- TAX ---------- -->
-      <details class="card details-card">
+      <details class="card details-card reveal-on-complete">
         <summary>
           <span class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="7" r="2.2" /><circle cx="17" cy="17" r="2.2" /><line x1="18" y1="6" x2="6" y2="18" /></svg></span>
           <span class="summary-text">Tax breakdown</span>
@@ -601,9 +618,11 @@
         <p>The best-known guidance, run against your own numbers. They disagree with each other — about whether to measure gross or take-home, and over how many years — and seeing exactly where they part company is more useful than picking one.</p>
       </header>
 
-      <p class="rules-verdict" id="rulesVerdict">—</p>
+      <p class="gate-notice show-until-complete">Finish the three steps in the calculator above and your own figures appear here, measured against each rule.</p>
 
-      <figure class="viz-root rules-chart">
+      <p class="rules-verdict reveal-on-complete" id="rulesVerdict">—</p>
+
+      <figure class="viz-root rules-chart reveal-on-complete">
         <figcaption class="rules-caption">
           <span>Most expensive home each rule allows</span>
           <span class="rules-key">
@@ -615,7 +634,7 @@
         <ol class="rule-rows" id="ruleRows"></ol>
       </figure>
 
-      <div class="readiness">
+      <div class="readiness reveal-on-complete">
         <h3>What comes before the payment</h3>
         <p class="readiness-sub">Every source here spends more time on what comes before the mortgage than on the mortgage. Openbook checks what it can see.</p>
         <ul class="readiness-list" id="readinessList"></ul>
