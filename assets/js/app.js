@@ -9,6 +9,7 @@
 import { STATE_DATA, CREDIT_BANDS, INS_TIER_TEXT, FILING_LABELS, DTI_FRONT_END } from './data.js';
 import { compute, parseNum, itemAmount } from './calc.js';
 import { evaluateBenchmarks, scoreBenchmarks, readiness } from './guidance.js';
+import { compareLedgers, COMPARE_LIMIT } from './compare.js';
 import {
   createDefaultState, createEmptyState, newItem, hydrate,
   save, load, clear, saveDraft, loadDraft, clearDraft,
@@ -1169,6 +1170,156 @@ const dayMonth = (ts) => ts
   ? new Date(ts).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
   : 'unknown date';
 
+/* ---------------------------------------------------------------------------
+ * Comparing views
+ *
+ * A saved view already shows the price it produces. What it can't show is why
+ * one view buys less house than another — the same price can come from a raise
+ * and a bigger mortgage, or from clearing a car loan, and those are not the
+ * same plan. So the comparison is the ledger itself, row for row.
+ * ------------------------------------------------------------------------- */
+
+/** View ids to compare, in the order they were ticked. CURRENT_ID is live input. */
+const CURRENT_ID = '\u0000current';
+const compareSelection = new Set();
+
+/** The live numbers are only offered once the three steps have been opened. */
+const currentIsOfferable = () => document.body.dataset.steps === 'complete';
+
+function toggleCompare(id, on) {
+  if (on) {
+    if (compareSelection.size >= COMPARE_LIMIT) return false;
+    compareSelection.add(id);
+  } else {
+    compareSelection.delete(id);
+  }
+  return true;
+}
+
+function compareEntries(views) {
+  const entries = [];
+  for (const id of compareSelection) {
+    if (id === CURRENT_ID) {
+      entries.push({ id, name: 'On screen now', state, isCurrent: true });
+      continue;
+    }
+    const view = views.find((v) => v.id === id);
+    if (view) entries.push({ id: view.id, name: view.name, state: view.state });
+  }
+  return entries;
+}
+
+function renderComparison(views) {
+  const panel = $('comparePanel');
+  const offerCurrent = currentIsOfferable();
+  const available = views.length + (offerCurrent ? 1 : 0);
+
+  // Nothing to compare against — don't offer a comparison of one thing.
+  panel.hidden = available < 2;
+  if (panel.hidden) return;
+
+  const currentWrap = $('cmpCurrentWrap');
+  currentWrap.hidden = !offerCurrent;
+  $('cmpCurrent').checked = compareSelection.has(CURRENT_ID);
+
+  const entries = compareEntries(views);
+  const hint = $('compareHint');
+  const host = $('compareTable');
+  host.textContent = '';
+
+  if (entries.length < 2) {
+    hint.textContent = `Tick two or more of the views above — up to ${COMPARE_LIMIT} — and their ledgers appear here side by side.`;
+    return;
+  }
+
+  const table = compareLedgers(entries);
+  hint.textContent = compareSelection.size >= COMPARE_LIMIT
+    ? `Comparing ${entries.length}. That's the limit — untick one to swap it for another.`
+    : `Comparing ${entries.length}. Every row is monthly except the home price.`;
+
+  const el = document.createElement('table');
+  el.className = 'cmp-table';
+
+  const caption = document.createElement('caption');
+  caption.className = 'cmp-caption';
+  caption.textContent = table.diffable
+    ? `Each view's ledger, in ledger order. The last column is "${table.columns[1].name}" minus "${
+      table.columns[0].name}" on each figure, so a positive difference on a tax or debt row means more of it.`
+    : "Each view's ledger, in ledger order. A difference column needs exactly two views — with more than two there is no baseline the reader can see.";
+  el.appendChild(caption);
+
+  const head = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  const corner = document.createElement('th');
+  corner.scope = 'col';
+  corner.textContent = 'Per month';
+  headRow.appendChild(corner);
+
+  for (const column of table.columns) {
+    const th = document.createElement('th');
+    th.scope = 'col';
+    const name = document.createElement('span');
+    name.className = 'cmp-name';
+    name.textContent = column.name;
+    th.appendChild(name);
+
+    // Two things change what a column means, so neither is left implicit.
+    const flags = [];
+    if (column.usingTestPrice) flags.push('a price you entered');
+    if (column.cappedByRule) flags.push('held to 28% of gross');
+    if (flags.length) {
+      const flag = document.createElement('span');
+      flag.className = 'cmp-flag';
+      flag.textContent = flags.join(' · ');
+      th.appendChild(flag);
+    }
+    headRow.appendChild(th);
+  }
+
+  if (table.diffable) {
+    const th = document.createElement('th');
+    th.scope = 'col';
+    th.className = 'cmp-diff-head';
+    th.textContent = 'Difference';
+    headRow.appendChild(th);
+  }
+  head.appendChild(headRow);
+  el.appendChild(head);
+
+  const body = document.createElement('tbody');
+  for (const row of table.rows) {
+    const tr = document.createElement('tr');
+    tr.className = `cmp-row is-${row.group}`;
+
+    const label = document.createElement('th');
+    label.scope = 'row';
+    label.textContent = row.label;
+    tr.appendChild(label);
+
+    row.values.forEach((value, i) => {
+      const td = document.createElement('td');
+      td.textContent = row.sign < 0 ? moneyNeg(value) : money(value);
+      td.classList.toggle('is-negative', row.key === 'unallocated' && value < -1);
+      // The figure a column is really about, for anyone scanning across.
+      if (row.group === 'outcome' || row.group === 'subtotal') td.classList.add('is-key');
+      if (table.columns[i].isCurrent) td.classList.add('is-current');
+      tr.appendChild(td);
+    });
+
+    if (table.diffable) {
+      const td = document.createElement('td');
+      td.className = 'cmp-diff';
+      td.textContent = Math.abs(row.diff) < 1
+        ? '\u2014'
+        : `${row.diff > 0 ? '+' : '\u2212'}${money(Math.abs(row.diff))}`;
+      tr.appendChild(td);
+    }
+    body.appendChild(tr);
+  }
+  el.appendChild(body);
+  host.appendChild(el);
+}
+
 /**
  * The library, rebuilt from storage each time. Each row carries the price that
  * view produces, so the list doubles as a comparison of the scenarios rather
@@ -1184,12 +1335,20 @@ function renderViews() {
     views = listViews();
   } catch (e) {
     hint.textContent = "Views can't be read in this browser (private window, or storage is blocked).";
+    $('comparePanel').hidden = true;
     return;
   }
 
   hint.textContent = views.length
     ? `${views.length} of ${VIEW_LIMITS.count} saved on this device. Saving under a name you've used before replaces it.`
     : 'Nothing saved yet. Views live on this device only, like everything else here.';
+
+  // A deleted view can't stay in the comparison, and neither can the live
+  // numbers once the gate has hidden them again.
+  const ids = new Set(views.map((view) => view.id));
+  for (const id of compareSelection) {
+    if (id === CURRENT_ID ? !currentIsOfferable() : !ids.has(id)) compareSelection.delete(id);
+  }
 
   for (const view of views) {
     const result = compute(view.state);
@@ -1209,6 +1368,25 @@ function renderViews() {
 
     const actions = document.createElement('div');
     actions.className = 'view-actions';
+
+    const compareWrap = document.createElement('label');
+    compareWrap.className = 'view-compare';
+    const compareBox = document.createElement('input');
+    compareBox.type = 'checkbox';
+    compareBox.checked = compareSelection.has(view.id);
+    compareBox.setAttribute('aria-label', `Compare the view ${view.name}`);
+    compareBox.addEventListener('change', () => {
+      if (!toggleCompare(view.id, compareBox.checked)) {
+        compareBox.checked = false;
+        toast(`Up to ${COMPARE_LIMIT} at a time`, true);
+        return;
+      }
+      renderViews();
+    });
+    const compareText = document.createElement('span');
+    compareText.textContent = 'Compare';
+    compareWrap.append(compareBox, compareText);
+    actions.appendChild(compareWrap);
 
     const loadBtn = document.createElement('button');
     loadBtn.type = 'button';
@@ -1255,6 +1433,8 @@ function renderViews() {
     row.append(main, actions);
     list.appendChild(row);
   }
+
+  renderComparison(views);
 }
 
 /* ---------------------------------------------------------------------------
@@ -1353,6 +1533,15 @@ function doSaveView() {
     toast("Couldn't save in this browser (private window, or storage is blocked)", true);
   }
 }
+
+$('cmpCurrent').addEventListener('change', (event) => {
+  if (!toggleCompare(CURRENT_ID, event.target.checked)) {
+    event.target.checked = false;
+    toast(`Up to ${COMPARE_LIMIT} at a time`, true);
+    return;
+  }
+  renderViews();
+});
 
 menuAction('btnViewsOpen', () => {
   showPanel('viewsPanel');

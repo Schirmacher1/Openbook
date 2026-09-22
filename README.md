@@ -42,6 +42,7 @@ assets/js/data.js       Tax brackets, per-state data, credit tiers, insurance ti
 assets/js/calc.js       The whole calculation, as pure functions (no DOM, no storage)
 assets/js/state.js      Defaults, persistence and share codes
 assets/js/guidance.js   Published rules of thumb and the readiness checks
+assets/js/compare.js    Saved views, side by side, as pure functions
 assets/js/app.js        The interface: rendering, wiring, charts
 assets/js/theme.js      Pre-paint theme stamp (kept external so CSP can ban inline script)
 tests/calc.test.js      Engine tests
@@ -317,6 +318,32 @@ is about to delete and asks first.
 the recipient pastes it into "Paste a code". A link can't carry the data reliably — the
 page is often opened inside another app's viewer, which doesn't hand the script the URL —
 so the code is the transport.
+
+### Comparing views
+
+Ticking two or more saved views (up to four) puts their ledgers side by side in the same
+order the ledger card uses. `assets/js/compare.js` is pure — it takes `{ id, name, state }`
+entries and returns columns and rows — so `tests/compare.test.js` can pin the arithmetic
+without a browser.
+
+Why the whole ledger rather than the price each view produces, which the list already
+shows: the price can't tell you *which* line moved. A view that buys less house because the
+401(k) went up and one that buys less because a car loan came back look identical at the
+top and nothing alike underneath. The tests pin one case where two views produce the *same*
+price for a reason invisible in the price — both held to 28% of gross — and the difference
+shows up in unallocated income instead.
+
+Details:
+
+- **A difference column appears only with exactly two views.** With three or more it would
+  have to choose a baseline the reader can't see. The caption names the subtraction.
+- **The live numbers are an optional column,** offered only once the step gate has opened —
+  before that the page has no figures to show, and this is not the back way in.
+- **A view running a what-if price is compared on that price,** and the column says so.
+  Showing its estimate above a housing row computed from a different price would be two
+  answers to one question.
+- **Four columns, then stop.** A fifth doesn't fit a laptop, and on a phone the table
+  scrolls sideways with the row labels pinned.
 
 ## Deploying
 
