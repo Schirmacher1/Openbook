@@ -242,7 +242,10 @@
             <input type="text" id="viewName" placeholder="e.g. Current plan" maxlength="60" autocomplete="off" />
             <button type="button" class="btn btn-primary btn-sm" id="btnSaveView">Save view</button>
           </div>
-          <p class="hint" id="viewsHint"></p>
+          <div class="views-list-head">
+            <p class="hint" id="viewsHint"></p>
+            <button type="button" class="btn btn-ghost btn-sm" id="btnShareAllViews" hidden>Share all views…</button>
+          </div>
           <div id="viewsList"></div>
         </div>
 
@@ -285,7 +288,7 @@
       <div class="drawer" id="sharePanel" hidden>
         <div class="drawer-block">
           <label class="drawer-title" for="shareCodeOut">Your share code</label>
-          <p class="hint">Copying it automatically didn't work in this browser. Select the code and copy it by hand — it's the whole of your numbers, so send it however you'd send anything else private.</p>
+          <p class="hint" id="shareHint"></p>
           <textarea id="shareCodeOut" class="share-out" rows="3" readonly spellcheck="false"></textarea>
         </div>
       </div>
@@ -827,7 +830,7 @@
         </details>
         <details>
           <summary>Can I share my numbers with a partner?</summary>
-          <div class="details-body"><p>Yes — "Copy share code" packs everything into a block of text you can send however you like. They paste it into "Paste a code" on their own copy of this page. Nothing is uploaded; the code <em>is</em> the data.</p></div>
+          <div class="details-body"><p>Yes, at whichever scope fits. "Copy share code" in the Manage menu packs just the numbers on screen. Open "Saved views" and each one has its own "Share" button — that sends one scenario, and it lands on their screen <em>and</em> in their library at once, so they don't have to re-save it to compare it against their own. "Share all views" sends your whole library in one code. Every one of them pastes into "Paste a code" the same way; the code <em>is</em> the data, nothing is uploaded, and pasting a views-only code never touches what's on their screen — it only adds to their library.</p></div>
         </details>
         <details>
           <summary>Is this financial advice?</summary>

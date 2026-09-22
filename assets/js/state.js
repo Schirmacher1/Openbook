@@ -372,14 +372,60 @@ export function clearViews() {
  * email or chat, and the other person pastes it back in.
  * ------------------------------------------------------------------------- */
 
-export function encodeShareCode(state) {
-  const json = JSON.stringify(serialize(state));
+function toBase64Json(payload) {
+  const json = JSON.stringify(payload);
   const bytes = new TextEncoder().encode(json);
   let binary = '';
   bytes.forEach((b) => { binary += String.fromCharCode(b); });
   return btoa(binary);
 }
 
+export function encodeShareCode(state) {
+  return toBase64Json(serialize(state));
+}
+
+/**
+ * The version marker on a code that can carry more than one state. A bare
+ * code from encodeShareCode() — including every code sent before this existed
+ * — has no such key at its top level; every key it does have is a state field
+ * from PERSISTED_KEYS, and `openbookShare` is none of them. That is what lets
+ * decodeShareCode() tell the two formats apart without a version number
+ * anyone has to remember to pass.
+ */
+const SHARE_VERSION = 2;
+
+/**
+ * A code that can carry more than the numbers on screen: the current state,
+ * one saved view, or the whole library — whatever the caller passes.
+ *
+ * `current` is optional, so a view can be shared without touching what's on
+ * the sender's own screen. `views` is a list of `{ name, state }`, the same
+ * shape listViews() returns, capped at VIEW_LIMITS.count for the same reason
+ * the library itself is: a library that size is already a lot to page
+ * through, and it keeps the code from growing without bound.
+ */
+export function encodeShareBundle({ current, views } = {}) {
+  return toBase64Json({
+    openbookShare: SHARE_VERSION,
+    current: current ? serialize(current) : null,
+    views: (views || []).slice(0, VIEW_LIMITS.count).map((v) => ({
+      name: (String(v.name ?? '').trim() || 'Untitled view').slice(0, VIEW_LIMITS.name),
+      state: serialize(v.state)
+    }))
+  });
+}
+
+/**
+ * Reads either format code produces. A bare code — from encodeShareCode(), or
+ * from any earlier version of the page, since the format hasn't changed —
+ * comes back as a hydrated state directly, exactly as it always has, for
+ * compatibility with every code already sent and every existing call site.
+ *
+ * A bundle comes back as `{ bundle: true, current, views }`: `current`
+ * hydrated (or null, if the code was views only), and each view's state
+ * hydrated the same way listViews() sanitises its own — a tampered or
+ * corrupted entry is dropped or defaulted, never trusted.
+ */
 export function decodeShareCode(code) {
   const raw = String(code).trim();
   // Refuse to decode something far larger than any real state, rather than
@@ -387,5 +433,26 @@ export function decodeShareCode(code) {
   if (raw.length > LIMITS.shareCode) throw new Error('Share code is too long to be real');
   const binary = atob(raw);
   const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-  return hydrate(JSON.parse(new TextDecoder().decode(bytes)));
+  const parsed = JSON.parse(new TextDecoder().decode(bytes));
+
+  if (parsed && typeof parsed === 'object' && parsed.openbookShare === SHARE_VERSION) {
+    return {
+      bundle: true,
+      current: parsed.current ? hydrate(parsed.current) : null,
+      views: sanitizeShareViews(parsed.views)
+    };
+  }
+
+  return hydrate(parsed);
+}
+
+function sanitizeShareViews(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .slice(0, VIEW_LIMITS.count)
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry) => ({
+      name: (typeof entry.name === 'string' ? entry.name : '').slice(0, VIEW_LIMITS.name) || 'Untitled view',
+      state: hydrate(entry.state)
+    }));
 }
