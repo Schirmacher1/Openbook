@@ -6,7 +6,7 @@
  * value changes only recompute — so typing never steals your own focus.
  */
 
-import { STATE_DATA, CREDIT_BANDS, INS_TIER_TEXT, FILING_LABELS, DTI_FRONT_END } from './data.js';
+import { STATE_DATA, CREDIT_BANDS, INS_TIER_TEXT, FILING_LABELS, DTI_FRONT_END, RATES_AS_OF } from './data.js';
 import { compute, parseNum, itemAmount } from './calc.js';
 import { evaluateBenchmarks, scoreBenchmarks, readiness } from './guidance.js';
 import { compareLedgers, COMPARE_LIMIT } from './compare.js';
@@ -1009,6 +1009,12 @@ function paint({ animate = false } = {}) {
     ? "The Money Guy's 3/5/25 lets a first home go as low as 3% down, provided you plan to stay five years. Under 20% still means PMI."
     : "After your first home, The Money Guy's figure is 20% down, not 3% — and the stay is five to seven years.";
 
+  // Below roughly 620 the estimate is modelling a loan that mostly isn't
+  // written, so it says so rather than quoting a confident figure.
+  $('creditHint').textContent = state.credit === '300'
+    ? "Conventional lenders and mortgage insurers generally won't write a loan below about 620 at all. An FHA loan is the usual route, and it prices differently from the estimate here — treat this line as a rough upper bound on cost."
+    : '';
+
   $('insHint').textContent = state.insMode === 'estimate'
     ? `${INS_TIER_TEXT[result.model.insTier]} Estimated at ${money(result.payment.insurance)}/mo for this price.`
     : 'Used as a flat monthly premium at any price.';
@@ -1034,15 +1040,20 @@ let autosaveEnabled = false;
 
 function setSaveStatus(savedAt, { draft = false } = {}) {
   const el = $('saveStatus');
+  const end = $('saveStatusEnd');
   if (!savedAt) {
     el.textContent = draft
       ? "Not saved to this device. Your numbers survive a refresh of this tab — close it and they're gone."
       : 'Not saved yet — this page forgets everything when you close it.';
+    end.textContent = draft
+      ? 'Not saved to this device yet. They survive a refresh of this tab, and go when you close it.'
+      : 'Not saved yet.';
     return;
   }
   const date = new Date(savedAt);
-  el.innerHTML = `Saved on this device · <strong>${date.toLocaleDateString()} ${
-    date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong>`;
+  const when = `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  el.innerHTML = `Saved on this device · <strong>${when}</strong>`;
+  end.textContent = `Saved on this device at ${when}. Changes from here are kept automatically.`;
 }
 
 function doSave(manual) {
@@ -1748,7 +1759,21 @@ $('viewName').addEventListener('keydown', (event) => {
 
 menuAction('btnSave', () => doSave(true));
 
-menuAction('btnShare', async () => {
+/**
+ * Numbers that arrived in someone else's code deserve a different offer: a
+ * share code carries one scenario, not a library, so the way to compare theirs
+ * with yours is to save theirs as a view.
+ */
+let cameFromCode = false;
+
+function renderSaveCardSub() {
+  $('saveCardSub').textContent = cameFromCode
+    ? "These arrived in someone else's code. A code carries one set of numbers, not their saved views — save these as a named view and you can put them beside your own."
+    : 'This page forgets everything when you close it. Saving keeps them on this device — nothing is uploaded.';
+}
+
+/** Copy the share code, or show it when the clipboard is refused. */
+async function doShare() {
   const code = encodeShareCode(state);
   try {
     await navigator.clipboard.writeText(code);
@@ -1763,6 +1788,19 @@ menuAction('btnShare', async () => {
     out.focus();
     out.select();
   }
+}
+
+menuAction('btnShare', doShare);
+
+/* The same three offers, at the end of the form: the menu is at the top of the
+   page and you have to know it's there. */
+$('btnSaveEnd').addEventListener('click', () => doSave(true));
+$('btnShareEnd').addEventListener('click', doShare);
+$('btnSaveViewEnd').addEventListener('click', () => {
+  showPanel('viewsPanel');
+  renderViews();
+  $('viewsPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  $('viewName').focus();
 });
 
 $('btnLoadCode').addEventListener('click', () => {
@@ -1771,6 +1809,8 @@ $('btnLoadCode').addEventListener('click', () => {
   try {
     const next = decodeShareCode(input.value);
     applyState(next, { message: "Loaded those numbers. They've replaced what was on this page in your browser — not what's saved on their device." });
+    cameFromCode = true;
+    renderSaveCardSub();
     input.value = '';
     showPanel(null);
     revealResults();
@@ -1784,6 +1824,8 @@ $('btnLoadCode').addEventListener('click', () => {
 
 menuAction('btnReset', () => {
   applyState(createEmptyState(), { message: 'Cleared the example numbers. Everything is yours to fill in.' });
+  cameFromCode = false;
+  renderSaveCardSub();
   showPanel(null);
   selectTab('tab-income');
 });
@@ -1888,6 +1930,8 @@ function boot() {
   mountPartnerSlots();
   visitedSteps.add(tabs[0].id);
   renderGate();
+  $('ratesAsOf').textContent = RATES_AS_OF;
+  renderSaveCardSub();
   buildLedgerRows('ledgerPreRows', LEDGER_PRE_ROWS);
   buildLedgerRows();
 

@@ -10,7 +10,7 @@ import {
   parseNum, bracketTax, monthlyPI, rateForTerm, pmiBaseForDownPct,
   computePaycheck, housingModel, solvePrice, compute
 } from '../assets/js/calc.js';
-import { BRACKETS, CREDIT_BANDS, SS_WAGE_BASE, STATE_DATA } from '../assets/js/data.js';
+import { BRACKETS, CREDIT_BANDS, SS_WAGE_BASE, STATE_DATA, PMI_RATE_CAP } from '../assets/js/data.js';
 import { createDefaultState, createEmptyState } from '../assets/js/state.js';
 
 const near = (actual, expected, tolerance = 1) =>
@@ -499,4 +499,53 @@ test('take-home minus every debit is the unallocated figure', () => {
   const debits = ledger.debits;
   near(ledger.debitsTotal, debits.savings + debits.debts + debits.expenses + debits.housing, 0.01);
   near(ledger.netMonthly - ledger.debitsTotal, ledger.unallocated, 0.01);
+});
+
+/* --------------------------------------------------------------------------
+ * Mortgage insurance has a ceiling
+ *
+ * The credit-tier multipliers, unchecked, took the weakest tier past 5% of the
+ * loan a year. Published MI rate cards top out around 1.5%-2% at 95% LTV, and
+ * conventional mortgage insurance is generally not written below 620 at all, so
+ * a figure like that is not a product — it is arithmetic nobody would sell.
+ * ------------------------------------------------------------------------ */
+
+test('no credit tier can be quoted a PMI rate above the cap', () => {
+  for (const credit of Object.keys(CREDIT_BANDS)) {
+    for (const downPct of [1, 3, 5, 10, 15, 19.9]) {
+      const state = createDefaultState();
+      state.credit = credit;
+      state.downpayment = 10000;
+      const model = housingModel(state);
+      const price = 10000 / (downPct / 100);
+      const { pmiRate } = model.paymentAt(price);
+      assert.ok(pmiRate <= PMI_RATE_CAP + 1e-9,
+        `${credit} at ${downPct}% down quotes ${pmiRate.toFixed(2)}%`);
+      assert.ok(pmiRate > 0, `${credit} at ${downPct}% down should carry PMI`);
+    }
+  }
+});
+
+test('the cap binds only where it should', () => {
+  // Strong credit is nowhere near it; the weakest tier is held by it.
+  const at = (credit, downPct) => {
+    const state = createDefaultState();
+    state.credit = credit;
+    state.downpayment = 10000;
+    return housingModel(state).paymentAt(10000 / (downPct / 100)).pmiRate;
+  };
+  assert.ok(at('800', 5) < 0.5, 'excellent credit at 5% down should be well under 0.5%');
+  assert.ok(at('740', 5) < 0.6);
+  assert.equal(at('300', 3), PMI_RATE_CAP);
+  assert.ok(at('300', 15) < PMI_RATE_CAP, 'a bigger deposit should still cost less');
+});
+
+test('rates line up with the survey they are anchored to', () => {
+  // The 740-799 tier sits at the PMMS 30-year figure, and the 15-year discount
+  // is the gap the same survey week reported.
+  assert.equal(CREDIT_BANDS['740'].rate30, 6.95);
+  assert.equal(rateForTerm(CREDIT_BANDS['740'], 15), 6.95 - 0.69);
+  // Better credit is cheaper, worse credit dearer, with no ties.
+  const order = ['800', '740', '670', '580', '300'].map((k) => CREDIT_BANDS[k].rate30);
+  for (let i = 1; i < order.length; i++) assert.ok(order[i] > order[i - 1], 'rates must rise as credit falls');
 });

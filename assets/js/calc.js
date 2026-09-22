@@ -9,7 +9,7 @@
 import {
   BRACKETS, STD_DED, ADDL_MEDICARE_THRESHOLD, SS_WAGE_BASE, SS_RATE,
   MEDICARE_RATE, ADDL_MEDICARE_RATE, PAY_FREQ, CREDIT_BANDS, TERM_15_DISCOUNT,
-  STATE_DATA, INS_TIER_RATE, DTI_FRONT_END, DTI_BACK_END, DTI_APPROVAL
+  STATE_DATA, INS_TIER_RATE, DTI_FRONT_END, DTI_BACK_END, DTI_APPROVAL, PMI_RATE_CAP
 } from './data.js';
 
 /* ---------------------------------------------------------------------------
@@ -139,7 +139,11 @@ export function housingModel(state) {
     const p = Math.max(0, price);
     const loan = Math.max(0, p - downpayment);
     const downPct = p > 0 ? (downpayment / p) * 100 : 100;
-    const pmiRate = downPct >= 20 ? 0 : pmiBaseForDownPct(downPct) * band.pmiMult;
+    // Held to a ceiling a real rate card could quote: the tier multipliers put
+    // the weakest credit past 5% a year otherwise, which no insurer writes.
+    const pmiRate = downPct >= 20
+      ? 0
+      : Math.min(pmiBaseForDownPct(downPct) * band.pmiMult, PMI_RATE_CAP);
     const pmi = (loan * (pmiRate / 100)) / 12;
     const pi = monthlyPI(loan, rate, state.term);
     const tax = (p * (stateInfo.proptax / 100)) / 12;
