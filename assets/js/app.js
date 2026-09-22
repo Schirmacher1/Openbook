@@ -193,16 +193,35 @@ function renderGate() {
  *  the wrong place" turned out to be.
  */
 function selectTab(id, { focus = false } = {}) {
-  let panel;
+  const panel = $(tabs.find((tab) => tab.id === id).getAttribute('aria-controls'));
+
+  // The click that led here is very often a "Next"/"Back" button living
+  // inside the panel that's about to be hidden. Hiding a focused element
+  // makes the browser rescue focus onto whatever's next in DOM or tab order
+  // IMMEDIATELY and SYNCHRONOUSLY, as part of setting `hidden` itself — not
+  // deferred to some later point where redirecting focus afterwards could
+  // still catch it. The moment the step gate reveals a huge amount of
+  // previously display:none content, "whatever's next" can be something
+  // arbitrary deep in the results column ("Against the published rules"),
+  // and focusing an off-screen element auto-scrolls to it, natively, before
+  // any of our own code gets a turn — including a focus redirect placed
+  // after the hide/show loop, which was the first, insufficient version of
+  // this fix: it moved focus to the right place, but only after the
+  // browser's own rescue had already dragged the viewport away. Moving
+  // focus ourselves FIRST, before anything is hidden, leaves the browser
+  // nothing to rescue.
+  const activeElsewhere = tabs.some((tab) =>
+    tab.id !== id && $(tab.getAttribute('aria-controls')).contains(document.activeElement));
+  if (!focus && activeElsewhere) panel.focus({ preventScroll: true });
+
   tabs.forEach((tab) => {
     const isActive = tab.id === id;
     tab.classList.toggle('is-active', isActive);
     tab.setAttribute('aria-selected', String(isActive));
     tab.tabIndex = isActive ? 0 : -1;
-    const tabPanel = $(tab.getAttribute('aria-controls'));
-    tabPanel.hidden = !isActive;
-    if (isActive) panel = tabPanel;
+    $(tab.getAttribute('aria-controls')).hidden = !isActive;
   });
+
   if (focus) $(id).focus();
 
   visitedSteps.add(id);
@@ -210,11 +229,51 @@ function selectTab(id, { focus = false } = {}) {
   return panel;
 }
 
-/** Scroll a newly revealed panel to the top of the viewport, under the sticky
- *  header — `scroll-padding-top` (openbook.css) already accounts for its
- *  height, the same way it does for every other in-page jump on the site. */
+/**
+ * Scroll a newly revealed panel to the top of the viewport, under the sticky
+ * header.
+ *
+ * Completing the third step flips a huge amount of previously display:none
+ * content to visible in the very same tick — the ledger, the rules section,
+ * the levers, every reveal-on-complete card in the results column — and some
+ * *native* browser scroll (not this call: instrumented and confirmed innocent,
+ * see below) detours through several screens of that newly-shown content
+ * before settling on the right spot, over about a second, if smooth scrolling
+ * is left switched on anywhere in the page for that moment. Someone glancing
+ * at their phone straight after tapping "Next" sees the wrong, mid-detour
+ * screen and reasonably assumes that's where the button took them — it was
+ * reported twice, with screenshots, before this was tracked down.
+ *
+ * What it isn't: not scroll anchoring (overflow-anchor: none is set on html
+ * and changed nothing); not this function's own window.scrollTo call (logged
+ * every call to it and to .focus() — this call always already carries the
+ * right target the instant it fires, and nothing else in that log touches
+ * scroll position afterwards); not fixed by passing behavior: 'auto' to that
+ * call either (the detour still played out identically). What does fix it:
+ * setting document.documentElement.style.scrollBehavior — the CSS property
+ * itself, not a per-call option — to 'auto' before touching anything, which
+ * is the one lever that actually reaches whatever native scroll this is.
+ * That single controlled experiment (everything else held constant) is what
+ * pins the cause here rather than somewhere still unexplained.
+ */
 function scrollToPanel(panel) {
-  panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (!panel) return;
+
+  const html = document.documentElement;
+  const restoreBehavior = html.style.scrollBehavior;
+  html.style.scrollBehavior = 'auto';
+
+  const headerGap = 16;
+  const target = Math.max(0,
+    panel.getBoundingClientRect().top + window.scrollY - header.offsetHeight - headerGap);
+  window.scrollTo({ top: target, behavior: 'auto' });
+
+  // Restored once the jump has had a couple of frames to fully settle, so
+  // every other in-page scroll on the site — clicking a nav link, "See the
+  // full ledger" — keeps the smooth default this one moment can't tolerate.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    html.style.scrollBehavior = restoreBehavior;
+  }));
 }
 
 tabs.forEach((tab) => {
