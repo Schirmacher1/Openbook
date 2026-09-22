@@ -39,6 +39,8 @@ handling — the arithmetic the interface is only allowed to display.
 index.html              The page: landing, calculator, ledger, FAQ
 assets/css/openbook.css Design tokens and every component
 assets/js/data.js       Tax brackets, per-state data, credit tiers, insurance tiers
+assets/js/proptax.generated.js  Per-state property tax, owner rate (generated — see below)
+assets/js/proptax-adjust.js     The buyer-vs-owner correction, hand-maintained
 assets/js/calc.js       The whole calculation, as pure functions (no DOM, no storage)
 assets/js/state.js      Defaults, persistence and share codes
 assets/js/guidance.js   Published rules of thumb and the readiness checks
@@ -331,7 +333,7 @@ worth very little. The page prints the date in its disclaimer; `RATES_AS_OF` in
 | 401(k) elective deferral limit | IRS Notice 2025-67 ($24,500) | Sept 2026 |
 | 30-year and 15-year mortgage rates | Freddie Mac PMMS, 17 Sept 2026 (6.95% / 6.26%) | Sept 2026 |
 | PMI by tier | Published MI rate cards, capped at `PMI_RATE_CAP` | Sept 2026 |
-| Property tax by state | Published 2026 effective-rate rankings, adjusted for buyers | Sept 2026 |
+| Property tax by state | U.S. Census ACS, automated + quarterly, adjusted for buyers | see below |
 
 Two of those need explaining.
 
@@ -341,18 +343,84 @@ the other tiers are spread around it by roughly the loan-level price adjustments
 conventional lender applies. The 15-year discount is the gap in the same survey week
 (6.95% − 6.26% = 0.69), which `tests/calc.test.js` pins.
 
-**Property tax is aimed at a buyer, not an owner.** Published "effective rate" tables
-divide tax paid by home value across everyone who already owns. In states that cap
-assessment growth that is not what the next buyer pays. California is the clearest case:
-Proposition 13 resets the assessment to the purchase price, so a buyer pays the 1%
-constitutional base plus voter-approved bonds — typically 1.10%-1.35% — while the
-published owner-average is 0.71%, because long-held homes are assessed far below market.
-Using the owner average understated a California buyer by about 40%, or roughly $200 a
-month on a $600,000 home. Texas caps homestead growth the same way, which is why its
-figure sits above its published owner average rather than at it.
+**Property tax refreshes itself.** The other rows in the table above are numbers
+someone checked by hand and will need to check again someday. Property tax doesn't wait
+for that — it's on a quarterly, automated pipeline, described in full below.
 
-Where sources disagreed, the more conservative (higher) figure was taken: understating a
-monthly cost in an affordability calculator fails in the direction that hurts.
+Where sources disagreed before the pipeline existed, the more conservative (higher)
+figure was taken: understating a monthly cost in an affordability calculator fails in the
+direction that hurts. That principle now lives in the pipeline's own review step, not in
+a one-time judgement call.
+
+### The property tax pipeline
+
+Three files, each with one job, none of them hand-editing another:
+
+| File | Job | Touched by |
+|---|---|---|
+| `assets/js/proptax.generated.js` | The raw figure per state — what an existing **owner** pays | `scripts/fetch-proptax.mjs` only |
+| `assets/js/proptax-adjust.js` | The correction for the handful of states where a **buyer** pays something else | A human, on purpose, with a citation |
+| `assets/js/data.js` | Applies the second to the first, once, in a loop right after `STATE_DATA` | Nothing — it's the consumer |
+
+**Where the number comes from.** `scripts/fetch-proptax.mjs` pulls two American
+Community Survey tables for every state — median real estate tax paid
+(`B25103_001E`) and median home value (`B25077_001E`) — and divides one by the
+other. That's the same method the widely-quoted rankings use, and unlike them
+it's reproducible: same query, same answer, and the query is sitting right
+there in the script rather than behind whatever a ranking site did last year.
+
+**Why it's a government API and not a citation.** A number that drifts and is
+checked by hand on whatever schedule someone remembers to do it is exactly how
+this table got stale in the first place. Pulling from the primary source on a
+schedule is the fix — this is public, free, government-published data with no
+API key required, not something that needed a subscription or a workaround.
+
+**Why it runs in CI and not here.** The environment this was built in has no
+route to `api.census.gov`, or to any other government data host — only
+`github.com` is reachable from it. That's a property of *that specific
+environment's* network policy, not of the data. `.github/workflows/proptax.yml`
+runs the same script on a GitHub Actions runner, which has ordinary outbound
+internet, on the 2nd of January, April, July and October — a few days after
+each quarter turns over, so a freshly published release has time to actually
+be live.
+
+**What happens when it runs.** If the fetched figures differ from what's
+committed, the workflow runs the test suite against them and opens a pull
+request with the diff; nothing merges automatically. If a state's rate moved,
+a reviewer sees it move, the same way any other change to this page gets
+reviewed. Run it on demand rather than waiting for the schedule with
+`gh workflow run proptax.yml`.
+
+**Why owner and buyer are different files.** The ACS measures people who
+already own a home. Every user of this calculator is a *buyer*, and in a state
+that caps how fast an assessment can rise, a buyer is reassessed at the price
+they pay — a different number, sometimes by a wide margin. California is the
+clearest case: Proposition 13 resets the assessment to the purchase price, so a
+buyer pays the 1% constitutional base plus voter-approved bonds — typically
+1.10%-1.35% — while decades of capped growth pull the owner-average down to
+roughly 0.7%. Using the owner figure understates a California buyer by about
+40%, or roughly $200 a month on a $600,000 home. Texas caps homestead growth
+the same way.
+
+That correction is `assets/js/proptax-adjust.js`, and it's deliberately not
+part of the automated fetch: it's a policy judgement — *which* states need a
+correction, and by how much — not a data pull, and mixing the two is how a
+refresh would silently reintroduce stale advocacy dressed up as a stale
+number. It's short on purpose. Most states reassess close to market value on a
+sale, so the owner-average and the buyer figure are close enough that adding a
+correction would be false precision. Only California and Texas are listed, each
+with the reasoning inline; `tests/proptax.test.js` pins that nothing else in
+the fifty-one is adjusted, and that the two which are move by more than a
+rounding error.
+
+**The bootstrap.** `proptax.generated.js` as committed right now is seeded from
+the same figures that were already shipping in `data.js` before this pipeline
+existed — not a real ACS fetch, because the environment that built this
+couldn't reach the Census API to run one. Merging it changes nothing about
+what the page shows today (`tests/proptax.test.js` includes a byte-for-byte
+check of that), and the file says so at its own top. The first real run —
+scheduled, or triggered by hand — replaces it with an actual dated fetch and
+opens the first real PR.
 
 ## Performance
 

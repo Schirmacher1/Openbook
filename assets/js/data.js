@@ -6,6 +6,9 @@
  * ship with the page and the whole calculation runs in the browser.
  */
 
+import { PROPTAX_OWNER_RATE } from './proptax.generated.js';
+import { buyerRate } from './proptax-adjust.js';
+
 /* ---------------------------------------------------------------------------
  * Federal income tax
  * ------------------------------------------------------------------------- */
@@ -128,21 +131,25 @@ export const TERM_15_DISCOUNT = 0.69;
 /**
  * Per-state figures.
  *
- * PROPERTY TAX IS AIMED AT A BUYER, NOT AN OWNER. Published "effective rate"
- * tables divide tax paid by home value across everyone who already owns, and in
- * states that cap assessment growth that is not what the next buyer pays.
- * California is the clearest case: Proposition 13 resets the assessment to the
- * purchase price, so a buyer pays the 1% constitutional base plus voter-approved
- * bonds — typically 1.10%-1.35% — while the published owner-average is 0.71%
- * because long-held homes are assessed far below market. Using the owner average
- * would understate a California buyer's tax by roughly 40%. Texas caps homestead
- * growth the same way, which is why its figure here sits above the published
- * owner average rather than at it.
+ * PROPERTY TAX IS AIMED AT A BUYER, NOT AN OWNER. The number below each state
+ * (`proptax`) is not typed in by hand: it is `proptax.generated.js` — a table
+ * pulled from the Census Bureau's American Community Survey by
+ * scripts/fetch-proptax.mjs, refreshed by a quarterly GitHub Actions workflow
+ * that opens a pull request when anything moves — with `proptax-adjust.js`
+ * applied on top. Both live beside this file; see them for the method and the
+ * two-state adjustment list. The override loop right after STATE_DATA below is
+ * where the two meet: everything else about a state (its name, its insurance
+ * tier, its income-tax brackets) stays exactly as hand-authored here, and only
+ * `proptax` is replaced.
  *
- * Rates verified September 2026 against published 2026 rankings; where sources
- * disagreed the more conservative (higher) figure was taken, because
- * understating a monthly cost in an affordability calculator fails in the
- * direction that hurts.
+ * The reason the adjustment exists at all: published "effective rate" tables,
+ * ACS included, measure everyone who already OWNS. In a state that caps
+ * assessment growth, that is not what the next buyer pays. California is the
+ * clearest case — Proposition 13 resets the assessment to the purchase price,
+ * so a buyer pays the 1% constitutional base plus voter-approved bonds,
+ * typically 1.10%-1.35%, while decades of capped growth pull the owner-average
+ * down to roughly 0.7%. Using the owner average would understate a California
+ * buyer's tax by roughly 40%.
  *   proptax — effective annual property tax as a % of home value
  *   ins     — homeowners-insurance cost tier, keyed into INS_TIER_RATE
  *   tax     — a flat rate (decimal) or a [lowerBound, rate] bracket table
@@ -208,6 +215,17 @@ export const STATE_DATA = {
   WY: { name: 'Wyoming', proptax: 0.51, ins: 'low', tax: 0 },
   DC: { name: 'District of Columbia', proptax: 0.46, ins: 'medium', tax: [[0, 0.04], [10000, 0.06], [40000, 0.065], [60000, 0.085], [250000, 0.0925], [500000, 0.0975], [1000000, 0.1075]] }
 };
+
+// The `proptax` figures typed into STATE_DATA above are the fallback, used
+// only for a code the generated table doesn't have a rate for (which should
+// never happen — fetch-proptax.mjs refuses to write a file missing any of the
+// fifty-one). Everywhere else, the automated, dated, buyer-adjusted figure
+// wins, without disturbing the name, insurance tier or tax brackets typed in
+// by hand above. This is the only place proptax.generated.js is read.
+for (const code of Object.keys(STATE_DATA)) {
+  const owner = PROPTAX_OWNER_RATE[code];
+  if (owner > 0) STATE_DATA[code].proptax = buyerRate(code, owner);
+}
 
 /** Annual homeowners premium as a % of home value, by tier. */
 export const INS_TIER_RATE = { high: 1.05, medium: 0.65, low: 0.40, co: 0.85 };
