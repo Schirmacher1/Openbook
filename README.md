@@ -98,23 +98,22 @@ publicly, with a link to their own words:
 | [What a lender will approve](https://selling-guide.fanniemae.com/sel/b3-6-02/debt-income-ratios) | 45% of gross counting all debt, **no front-end cap** | monthly gross |
 | [HUD cost-burden line](https://www.huduser.gov/portal/pdredge/pdr_edge_featd_article_092214.html) | 30% of gross (50% is "severely cost burdened") | monthly gross |
 
-### Show the 28% figure on its own
+### The 28% half, kept separate
 
-The hero compares three prices, not two: what a lender will approve, **what 28% of gross
-allows**, and what the paycheck leaves.
+"Don't spend more than 28% of gross on housing" is the sentence everybody knows, but a
+combined 28/36 figure almost never reports it — as soon as there is any other debt the
+36% half is tighter and sets the number. On the example household the combined rule gives
+$2,120/mo while 28% of gross is $2,217/mo.
 
-The middle one has to be its own line. "Don't spend more than 28% of gross on housing" is
-the sentence everybody knows, but a combined 28/36 row almost never reports it — as soon
-as there is any other debt the 36% half is tighter and sets the figure. On the example
-household the combined rule gives $2,120/mo while 28% of gross is $2,217/mo, so the
-number people actually came looking for appeared nowhere on the page. `rule28` is that
-figure, computed and displayed separately, and `ruleOfThumb.boundBy` records which half
-produced the combined one so the rules section can say so.
+`rule28` holds the front-end half on its own, and `ruleOfThumb.boundBy` records which half
+produced the combined figure, so the rules section can say which one it is quoting. The
+hero used to display `rule28` as a price of its own; with that section removed it now
+appears only inside the 28/36 row's explanation, as a monthly figure.
 
 ### Approved is not the same as affordable
 
-The hero comparison is against **what a lender will approve**, which is a much larger
-number than the 28/36 rule most calculators quote:
+The approval line is **what a lender will approve**, which is a much larger number than
+the 28/36 rule most calculators quote:
 
 - a conventional loan applies **no front-end housing cap** — 28% is a guideline, not a
   requirement, and total debt-to-income is the only ratio underwriting enforces;
@@ -141,23 +140,14 @@ play and only two of them are the 28/36 rule:
 | `backEnd` | (housing + all other debt) ÷ gross | the **36** |
 
 Openbook leads with the take-home share because that's the argument, but a bare
-percentage means nothing without the limit it's being measured against. So the hero sets
-each ratio beside the figure the rule actually states, with a pass mark:
+percentage means nothing without the limit it's being measured against, so the readiness
+check prints the ratio and names the limit together.
 
-```
-Housing           24% of gross · rule allows 28%   ✓
-With your debts   33% of gross · rule allows 36%   ✓
-```
-
-The approval line gets the same two rows and fails both (36% and 45%), which makes the
-argument without a word of copy. Its rows carry a caption saying a lender doesn't apply
-the rule — two red crosses under a heading naming one otherwise read as a failure on
-Openbook's part rather than the lender's.
-
-Note that neither 36% nor 24% is set anywhere. Both fall out: 36% is what's left for
-housing after 45% of gross minus the debt load, and 24% is what the household's paycheck
-leaves. Change the debts and the lender's figure moves on its own — no debts gives 45%,
-$1,500 of debts gives 26%.
+Note that none of these percentages is set anywhere — they all fall out. The approval
+line's housing share is whatever 45% of gross minus the debt load leaves (36% on the
+example household); the paycheck line's is whatever that household's budget produces
+(24%). Change the debts and the first moves on its own: no debts gives 45%, $1,500 of
+debts gives 26%. Anything that displays one of them should say which test set it.
 
 There are two sets of these ratios, because two payments are in play. `estimate*`
 describes the affordability estimate and drives the hero. The unprefixed `frontEnd` /

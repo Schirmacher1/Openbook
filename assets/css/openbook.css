@@ -358,8 +358,12 @@ a { color: var(--accent-text); }
 }
 @media (min-width: 900px) { .hero { padding: 76px 0 84px; } }
 
-.hero-grid { display: grid; gap: 40px; align-items: center; }
-@media (min-width: 980px) { .hero-grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 56px; } }
+/* One column now the comparison card has gone. The headline and lede get their
+   own measures so they don't run the full width of a desktop viewport, while the
+   buttons and trust chips stay free to sit on one line. */
+.hero-single { display: grid; }
+.hero-single h1 { max-width: 24ch; }
+.hero-single .lede { max-width: 58ch; }
 
 .hero h1 { font-size: clamp(2.2rem, 1.35rem + 3.6vw, 3.9rem); }
 .hero h1 em { font-style: italic; color: var(--accent-text); }
@@ -370,65 +374,6 @@ a { color: var(--accent-text); }
 .trust-row { display: flex; flex-wrap: wrap; gap: 8px 20px; list-style: none; margin: 28px 0 0; padding: 0; }
 .trust-row li { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; color: var(--ink-faint); }
 .trust-row svg { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: var(--accent-text); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-
-/* ---- Lender vs. paycheck comparison ---- */
-
-.compare-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 22px;
-  box-shadow: var(--shadow-lg);
-}
-@media (min-width: 560px) { .compare-card { padding: 26px 28px; } }
-
-.compare-head h2 { font-size: 19px; }
-.compare-head p { font-size: 13.5px; color: var(--ink-faint); margin-top: 5px; }
-
-.compare-bars { margin-top: 22px; display: grid; gap: 20px; }
-
-.compare-row { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: baseline; }
-.compare-label {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-size: 13px; font-weight: 700; color: var(--ink-soft);
-}
-.swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
-.swatch-lender { background: var(--ink-faint); }
-.swatch-openbook { background: var(--series-1); }
-
-.compare-value {
-  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
-  font-size: 19px; font-weight: 600; color: var(--ink); text-align: right;
-}
-.compare-track {
-  grid-column: 1 / -1;
-  height: 12px;
-  background: var(--surface-2);
-  border-radius: 6px;
-  overflow: hidden;
-}
-.compare-fill {
-  width: 0;
-  height: 100%;
-  border-radius: 6px;
-  transition: width .5s cubic-bezier(.22, .61, .36, 1);
-}
-.fill-lender { background: var(--ink-faint); }
-.fill-openbook { background: var(--series-1); }
-.compare-note { grid-column: 1 / -1; font-size: 12.5px; color: var(--ink-faint); }
-
-.compare-foot {
-  margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border-soft);
-  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
-}
-.delta-chip {
-  font-size: 12.5px; font-weight: 800; color: var(--brass-text);
-  background: var(--brass-soft); border: 1px solid var(--brass-line);
-  border-radius: 999px; padding: 4px 11px;
-}
-.compare-source { font-size: 12.5px; color: var(--ink-faint); }
-
-@media (prefers-reduced-motion: reduce) { .compare-fill { transition: none; } }
 
 /* ==========================================================================
    Value strip
@@ -1135,37 +1080,6 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
 
 /* A breached ceiling, appended to the rules verdict. */
 .verdict-alarm { color: var(--bad); }
-
-.compare-footnote {
-  grid-column: 1 / -1;
-  margin-top: 4px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ink-faint);
-}
-
-/* Each gross ratio beside the 28/36 limit it is measured against. */
-.dti-check { grid-column: 1 / -1; margin-top: 8px; display: grid; gap: 5px; }
-.dti-row {
-  display: grid; grid-template-columns: minmax(74px, auto) 1fr auto;
-  gap: 4px 10px; align-items: baseline; font-size: 12.5px;
-}
-.dti-label { color: var(--ink-faint); font-weight: 700; }
-.dti-figures { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-.dti-figures strong { color: var(--ink); font-family: var(--font-mono); font-weight: 600; }
-.dti-mark { font-size: 12px; font-weight: 800; }
-.dti-mark.is-ok { color: var(--good); }
-.dti-mark.is-over { color: var(--bad); }
-@media (max-width: 420px) {
-  .dti-row { grid-template-columns: 1fr auto; }
-  .dti-label { grid-column: 1 / -1; }
-}
-
-.dti-caption { font-size: 12px; line-height: 1.5; color: var(--ink-faint); margin-bottom: 2px; }
-
-/* The published rule, sitting between the lender's ceiling and the paycheck. */
-.swatch-rule { background: var(--brass-fill); }
-.fill-rule { background: var(--brass-fill); }
 
 /* ==========================================================================
    Saved views
