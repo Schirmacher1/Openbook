@@ -440,13 +440,32 @@ a { color: var(--accent-text); }
 .toolbar-status strong { color: var(--ink); }
 .toolbar-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 
-.load-panel {
+/* A toolbar drawer: one intention, split into the couple of things you might
+   want to do about it. */
+.drawer {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow-sm);
+  border-radius: var(--radius); margin-bottom: 14px; box-shadow: var(--shadow-sm);
+  animation: drawer-in .18s ease both;
 }
-.load-panel > label { display: block; font-size: 13.5px; font-weight: 700; color: var(--ink-soft); margin-bottom: 8px; }
+@keyframes drawer-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .drawer { animation: none; } }
+
+.drawer-block { padding: 16px 18px; }
+.drawer-block + .drawer-block { border-top: 1px solid var(--border-soft); }
+.drawer-title {
+  display: block; font-size: 14.5px; font-weight: 700; color: var(--ink);
+}
+.drawer-block .hint { margin-top: 4px; }
+.drawer-row { margin-top: 12px; }
+.drawer-block .load-row { margin-top: 12px; }
+
 .load-row { display: flex; gap: 8px; }
 .load-row input { flex: 1; min-width: 0; }
+@media (max-width: 430px) {
+  .load-row { flex-wrap: wrap; }
+  .load-row input { flex: 1 1 100%; }
+  .load-row .btn { flex: 1 1 auto; }
+}
 
 .banner {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -678,9 +697,6 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
 .result-sub { font-size: 13px; color: var(--ink-soft); margin-top: 8px; }
 
 .result-card-soft { background: var(--surface); border-color: var(--border); }
-.result-card-flag { background: var(--brass-soft); border-color: var(--brass-line); }
-.result-card-flag h3 { font-size: 16px; color: var(--brass-text); }
-.result-card-flag p { font-size: 13.5px; color: var(--ink-soft); margin-top: 7px; }
 
 /* ---- Payment composition ---- */
 
@@ -1085,8 +1101,8 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
    Saved views
    ========================================================================== */
 
-.views-panel #viewsList:not(:empty) {
-  margin-top: 14px;
+#viewsList:not(:empty) {
+  margin-top: 12px;
   padding-top: 4px;
   border-top: 1px solid var(--border);
 }

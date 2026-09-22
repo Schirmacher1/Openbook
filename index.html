@@ -183,35 +183,76 @@
         <p>Everything updates as you type. Nothing is sent anywhere.</p>
       </header>
 
+      <!--
+        Three buttons, one per intention — keeping, sending, starting over.
+        Six flat ones wrapped into ragged rows on a phone and made the whole
+        strip read as a wall of equally-weighted choices.
+      -->
       <div class="toolbar">
         <p class="toolbar-status" id="saveStatus">Not saved yet — this page forgets everything when you close it.</p>
         <div class="toolbar-actions">
-          <button type="button" class="btn btn-primary btn-sm" id="btnSave">Save to this device</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="btnShare">Copy share code</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="btnViewsToggle" aria-expanded="false" aria-controls="viewsPanel">Saved views</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="btnLoadToggle" aria-expanded="false" aria-controls="loadPanel">Paste a code</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="btnReset">Start empty</button>
-          <button type="button" class="btn btn-ghost btn-sm btn-danger" id="btnClear">Clear saved</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btnSaveToggle" aria-expanded="false" aria-controls="viewsPanel">Save</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btnShareToggle" aria-expanded="false" aria-controls="sharePanel">Share</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btnResetToggle" aria-expanded="false" aria-controls="resetPanel">Start over</button>
         </div>
       </div>
 
-      <div class="load-panel views-panel" id="viewsPanel" hidden>
-        <label for="viewName">Save these numbers as a view you can come back to</label>
-        <div class="load-row">
-          <input type="text" id="viewName" placeholder="e.g. Current plan, or Without the car loan" maxlength="60" autocomplete="off" />
-          <button type="button" class="btn btn-primary btn-sm" id="btnSaveView">Save view</button>
+      <div class="drawer" id="viewsPanel" hidden>
+        <div class="drawer-block">
+          <p class="drawer-title">Keep these numbers</p>
+          <p class="hint">On this device only. Nothing is uploaded.</p>
+          <div class="drawer-row">
+            <button type="button" class="btn btn-ghost btn-sm" id="btnSave">Remember them when I come back</button>
+          </div>
         </div>
-        <p class="hint" id="viewsHint"></p>
-        <div id="viewsList"></div>
+
+        <div class="drawer-block">
+          <label class="drawer-title" for="viewName">Or save them as a named view</label>
+          <p class="hint">Keep several side by side — as things are, without the car loan, if the salary changes.</p>
+          <div class="load-row">
+            <input type="text" id="viewName" placeholder="e.g. Current plan" maxlength="60" autocomplete="off" />
+            <button type="button" class="btn btn-primary btn-sm" id="btnSaveView">Save view</button>
+          </div>
+          <p class="hint" id="viewsHint"></p>
+          <div id="viewsList"></div>
+        </div>
       </div>
 
-      <div class="load-panel" id="loadPanel" hidden>
-        <label for="loadCodeInput">Someone sent you a code? Paste it here to load their numbers.</label>
-        <div class="load-row">
-          <input type="text" id="loadCodeInput" placeholder="Paste the code" autocomplete="off" spellcheck="false" />
-          <button type="button" class="btn btn-primary btn-sm" id="btnLoadCode">Load</button>
+      <div class="drawer" id="sharePanel" hidden>
+        <div class="drawer-block">
+          <p class="drawer-title">Send your numbers to someone</p>
+          <p class="hint">Copies a block of text you can send however you like. There's no server — the code <em>is</em> the data.</p>
+          <div class="drawer-row">
+            <button type="button" class="btn btn-primary btn-sm" id="btnShare">Copy share code</button>
+          </div>
         </div>
-        <p class="hint">This replaces the numbers on this page in your browser. It doesn't touch theirs.</p>
+
+        <div class="drawer-block">
+          <label class="drawer-title" for="loadCodeInput">Someone sent you one?</label>
+          <p class="hint">Paste it below. This replaces the numbers on this page in your browser — it doesn't touch theirs.</p>
+          <div class="load-row">
+            <input type="text" id="loadCodeInput" placeholder="Paste the code" autocomplete="off" spellcheck="false" />
+            <button type="button" class="btn btn-ghost btn-sm" id="btnLoadCode">Load</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="drawer" id="resetPanel" hidden>
+        <div class="drawer-block">
+          <p class="drawer-title">Clear the example numbers</p>
+          <p class="hint">Empties every field so you can fill in your own from scratch. Doesn't touch anything you've saved.</p>
+          <div class="drawer-row">
+            <button type="button" class="btn btn-ghost btn-sm" id="btnReset">Start with empty fields</button>
+          </div>
+        </div>
+
+        <div class="drawer-block">
+          <p class="drawer-title">Delete what's stored on this device</p>
+          <p class="hint">Removes the remembered numbers and every saved view. You'll be told what's about to go first.</p>
+          <div class="drawer-row">
+            <button type="button" class="btn btn-ghost btn-sm btn-danger" id="btnClear">Delete saved data</button>
+          </div>
+        </div>
       </div>
 
       <div id="bannerSlot" aria-live="polite"></div>
@@ -487,11 +528,6 @@
             <span class="rules-score" id="rulesScore">—</span>
             <span class="result-sub">Ramsey, The Money Guy, conventional underwriting and the federal cost-burden line, run against your numbers →</span>
           </a>
-
-          <div class="result-card result-card-flag" id="lenderFlag" hidden>
-            <h3>A lender would go higher</h3>
-            <p id="lenderFlagText"></p>
-          </div>
         </aside>
       </div>
 
@@ -674,7 +710,7 @@
         </details>
         <details>
           <summary>Can I save more than one scenario?</summary>
-          <div class="details-body"><p>Yes — "Saved views" keeps a named library of them. Save the numbers as they are now, change something, save that under another name, and switch between them in a click. The list shows the price each view works out to, so you can compare "as things are" against "if we clear the car loan" without re-typing anything. Like everything else here they're stored on your device only, and "Clear saved" removes them after telling you which ones it's about to delete.</p></div>
+          <div class="details-body"><p>Yes — "Saved views" keeps a named library of them. Save the numbers as they are now, change something, save that under another name, and switch between them in a click. The list shows the price each view works out to, so you can compare "as things are" against "if we clear the car loan" without re-typing anything. Like everything else here they're stored on your device only, and "Delete saved data" removes them after telling you which ones it's about to delete.</p></div>
         </details>
         <details>
           <summary>Can I share my numbers with a partner?</summary>

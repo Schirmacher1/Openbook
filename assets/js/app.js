@@ -6,10 +6,7 @@
  * value changes only recompute — so typing never steals your own focus.
  */
 
-import {
-  STATE_DATA, CREDIT_BANDS, INS_TIER_TEXT, FILING_LABELS,
-  DTI_APPROVAL, DTI_DU_CEILING, DTI_FRONT_END, DTI_BACK_END
-} from './data.js';
+import { STATE_DATA, CREDIT_BANDS, INS_TIER_TEXT, FILING_LABELS, DTI_FRONT_END } from './data.js';
 import { compute, parseNum, itemAmount } from './calc.js';
 import { evaluateBenchmarks, scoreBenchmarks, readiness } from './guidance.js';
 import {
@@ -845,18 +842,6 @@ function paint({ animate = false } = {}) {
     : "What's left each month after savings, debts and living costs — before any mortgage, tax, insurance or HOA. It's the tighter of the two tests here; the rule would allow "
       + `${money(result.ruleCap)}.`;
 
-  // --- lender flag ---
-  const gap = result.approval.price - result.price;
-  const flag = $('lenderFlag');
-  if (gap > 1000) {
-    flag.hidden = false;
-    $('lenderFlagText').textContent = `Conventional underwriting stops at ${pct(DTI_APPROVAL)} of gross income including all your debts — and applies no cap on the housing share at all — so a lender would go to ${
-      money(result.approval.price)}, ${money(gap)} more than this. That payment would take ${
-      pct(result.approvalShareOfTakeHome)} of your take-home pay instead of ${pct(result.estimateShareOfTakeHome)}. Fannie Mae's automated underwriter allows up to ${pct(DTI_DU_CEILING)}.`;
-  } else {
-    flag.hidden = true;
-  }
-
   // --- totals on the input side ---
   $('savingsTotal').textContent = money(result.savingsTotalMonthly);
   $('debtsTotal').textContent = money(result.debtsMonthly);
@@ -1128,15 +1113,29 @@ function renderViews() {
   }
 }
 
-$('btnViewsToggle').addEventListener('click', () => {
-  const panel = $('viewsPanel');
-  panel.hidden = !panel.hidden;
-  $('btnViewsToggle').setAttribute('aria-expanded', String(!panel.hidden));
-  if (!panel.hidden) {
-    renderViews();
-    $('viewName').focus();
+/**
+ * The three toolbar drawers are mutually exclusive — two open at once is how the
+ * strip turned into a wall in the first place.
+ */
+const DRAWERS = [
+  { button: 'btnSaveToggle', panel: 'viewsPanel', onOpen: () => { renderViews(); $('viewName').focus(); } },
+  { button: 'btnShareToggle', panel: 'sharePanel' },
+  { button: 'btnResetToggle', panel: 'resetPanel' }
+];
+
+function toggleDrawer(target) {
+  const opening = $(target.panel).hidden;
+  for (const drawer of DRAWERS) {
+    const open = opening && drawer.panel === target.panel;
+    $(drawer.panel).hidden = !open;
+    $(drawer.button).setAttribute('aria-expanded', String(open));
   }
-});
+  if (opening && target.onOpen) target.onOpen();
+}
+
+for (const drawer of DRAWERS) {
+  $(drawer.button).addEventListener('click', () => toggleDrawer(drawer));
+}
 
 function doSaveView() {
   const input = $('viewName');
@@ -1179,13 +1178,6 @@ $('btnShare').addEventListener('click', async () => {
   }
 });
 
-$('btnLoadToggle').addEventListener('click', () => {
-  const panel = $('loadPanel');
-  panel.hidden = !panel.hidden;
-  $('btnLoadToggle').setAttribute('aria-expanded', String(!panel.hidden));
-  if (!panel.hidden) $('loadCodeInput').focus();
-});
-
 $('btnLoadCode').addEventListener('click', () => {
   const input = $('loadCodeInput');
   if (!input.value.trim()) { toast('Paste a code first', true); return; }
@@ -1193,8 +1185,7 @@ $('btnLoadCode').addEventListener('click', () => {
     const next = decodeShareCode(input.value);
     applyState(next, { message: "Loaded those numbers. They've replaced what was on this page in your browser — not what's saved on their device." });
     input.value = '';
-    $('loadPanel').hidden = true;
-    $('btnLoadToggle').setAttribute('aria-expanded', 'false');
+    toggleDrawer(DRAWERS[1]);
     persist();
     toast('Loaded');
   } catch (e) {
@@ -1204,6 +1195,7 @@ $('btnLoadCode').addEventListener('click', () => {
 
 $('btnReset').addEventListener('click', () => {
   applyState(createEmptyState(), { message: 'Cleared the example numbers. Everything is yours to fill in.' });
+  toggleDrawer(DRAWERS[2]);
   selectTab('tab-income');
 });
 
