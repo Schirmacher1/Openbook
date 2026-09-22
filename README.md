@@ -316,6 +316,24 @@ page used to imply. None of it changes the monthly payment, so none of it change
 can afford month to month — it changes whether you can get to the table at all, which is a
 different question the page had not been asking.
 
+**It used to only show up if you scrolled to the fuller breakdown card.** Asked directly —
+"is this accounting for closing costs?" — while looking at the main price card, the honest
+answer was that it *can't* be: closing costs are a one-time cash requirement, not a
+monthly one, so they have no effect on what a monthly budget affords, the same way a
+mortgage rate can't change the price of milk. What was actually missing was making that
+visible, rather than leaving the page silent about something it had already calculated a
+card away. The price card now carries its own "Cash to close" stat, computed the same way
+as the fuller breakdown but always for *this card's own price* — `cashToClose(result.payment,
+result.model)`, independent of whatever the ledger's price toggle is set to.
+
+That independence matters once a what-if price is active. The fuller breakdown card
+follows the ledger's test price instead of the estimate — `result.cash`, described above —
+so the two "cash to close" figures can genuinely disagree, and silently disagreeing looks
+like a bug. The fuller card's own note says so explicitly ("For the $900,000 price you
+entered below, not the estimate above") whenever that's the case; `tests/levers.test.js`
+pins both that the two agree exactly with no what-if price active, and that the price
+card's own figure never drifts to match one once it is.
+
 ## The levers
 
 `assets/js/levers.js` answers "what should I do about it" by running the same calculation

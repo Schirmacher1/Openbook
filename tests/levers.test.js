@@ -199,6 +199,34 @@ test('cash to close follows the what-if price, like the rest of the page', () =>
   assert.notEqual(Math.round(result.price), 500000);
 });
 
+test('the price card\'s own "Cash to close" always describes the estimate, even with a what-if price active', () => {
+  // The main price card shows cashToClose(result.payment, result.model)
+  // directly — computed for the estimate on its own, independent of
+  // whatever the ledger's price toggle is set to — because everything else
+  // on that card (loan amount, rate, down payment) describes the estimate
+  // too. result.cash, used by the fuller breakdown card further down,
+  // follows the what-if price instead once one is entered, and the two are
+  // allowed to disagree; this pins that the estimate's own figure never
+  // silently drifts to match it.
+  const state = createDefaultState();
+  state.priceTestMode = 'manual';
+  state.testPrice = '500000';
+  const result = compute(state);
+
+  const estimateCash = cashToClose(result.payment, result.model);
+  near(estimateCash.down, result.model.downpayment, 1);
+  near(estimateCash.fees, result.price * (CLOSING_FEE_PCT / 100), 0.01);
+  assert.notEqual(Math.round(estimateCash.total), Math.round(result.cash.total),
+    'the estimate\'s cash-to-close should differ from the what-if price\'s');
+});
+
+test('with no what-if price active, the two cash-to-close figures agree exactly', () => {
+  const state = createDefaultState();
+  const result = compute(state);
+  const estimateCash = cashToClose(result.payment, result.model);
+  near(estimateCash.total, result.cash.total, 0.01);
+});
+
 test('the escrow is this buyer\'s own tax and insurance, not an average', () => {
   const cheap = compute({ ...createDefaultState(), stateCode: 'HI' });  // 0.29% property tax
   const dear = compute({ ...createDefaultState(), stateCode: 'NJ' });   // 2.07%
