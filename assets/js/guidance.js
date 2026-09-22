@@ -14,6 +14,7 @@
  */
 
 import { housingModel, solvePrice, parseNum } from './calc.js';
+import { DTI_APPROVAL, DTI_DU_CEILING, DTI_FHA_CEILING } from './data.js';
 
 /* ---------------------------------------------------------------------------
  * The benchmarks
@@ -73,14 +74,21 @@ export const BENCHMARKS = [
   {
     id: 'approval',
     name: 'What a lender will approve',
-    rule: '45% of gross, counting all debt',
+    rule: `${Math.round(DTI_APPROVAL * 100)}% of gross, counting all debt`,
     basis: 'monthly gross income',
     source: 'Fannie Mae / conventional underwriting',
     url: 'https://selling-guide.fanniemae.com/sel/b3-6-02/debt-income-ratios',
     isCeiling: true,
     budget: (r) => r.approval.housingBudget,
     term: null,
-    note: 'Not a recommendation — the ceiling. A conventional loan applies no front-end housing cap, so total debt-to-income is the only constraint, and Fannie Mae\'s automated underwriter allows up to 50%; FHA stretches to 57% with strong compensating factors. 45% is modelled here as where a typical approval lands, so if anything this is the conservative end. It counts the debts on your credit report and nothing else — not your 401(k), your groceries, your childcare, or the tax you actually pay.'
+    note: () => {
+      const p = (n) => `${Math.round(n * 100)}%`;
+      return 'Not a recommendation — the ceiling. A conventional loan applies no front-end housing cap, so total '
+        + `debt-to-income is the only constraint, and Fannie Mae's automated underwriter allows up to ${p(DTI_DU_CEILING)}; `
+        + `FHA stretches to ${p(DTI_FHA_CEILING)} with strong compensating factors. ${p(DTI_APPROVAL)} is modelled here as `
+        + 'where a typical approval lands, so if anything this is the conservative end. It counts the debts on your '
+        + 'credit report and nothing else — not your 401(k), your groceries, your childcare, or the tax you actually pay.';
+    }
   },
   {
     id: 'hud',

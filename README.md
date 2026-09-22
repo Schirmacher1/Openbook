@@ -196,13 +196,18 @@ else's advice.
 
 ## Saving and sharing
 
-There are three tiers, on purpose.
+The calculator toolbar has three buttons — **Save**, **Share**, **Start over** — each
+opening one drawer, only one of which can be open at a time. Six flat buttons wrapped into
+ragged rows on a phone and gave every action the same weight; grouping them by intention
+fits one row and lets each action carry a sentence saying what it does.
+
+Persistence itself has three tiers, on purpose.
 
 **The in-tab draft** is written automatically to `sessionStorage` as you type. It
 survives a refresh, the back button and a restored tab, and the browser destroys it when
 the tab closes. It exists so a stray reload doesn't cost you twenty minutes of typing.
 
-**"Save to this device"** writes to `localStorage` and outlives the tab. It is deliberately
+**"Remember them when I come back"** (under Save) writes to `localStorage` and outlives the tab. It is deliberately
 something you ask for rather than the default: the page knows your salary, your debts and
 what you have put by, and leaving that on a library or office machine for whoever sits
 down next would undo the promise the rest of the site makes. Once you've saved once,
@@ -210,7 +215,7 @@ changes autosave.
 
 On load an explicit save wins over a draft — it outlived a tab, so it's the newer intent —
 and is announced with a banner. A draft is restored quietly, since it's the same tab you
-typed it into. "Clear saved" clears both.
+typed it into. "Delete saved data" (under Start over) clears both, plus the view library.
 
 Drafts go through `hydrate()` like anything else, so a tampered one is sanitised rather
 than trusted, and every draft call swallows its own failure — a blocked `sessionStorage`
@@ -225,8 +230,8 @@ Saving under a name already in use replaces that view (case-insensitively), so s
 "Plan A" twice updates Plan A instead of leaving two of them. The library caps at 24 and
 drops the oldest to make room rather than refusing a save. Views read back through
 `hydrate()` like anything else, so a corrupt store reads as empty and a tampered entry is
-sanitised. "Clear saved" removes them too, but never silently: it names the views it is
-about to delete and asks first.
+sanitised. "Delete saved data" removes them too, but never silently: it names the views it
+is about to delete and asks first.
 
 **"Copy share code"** packs the state into a base64 string you can send by text or email;
 the recipient pastes it into "Paste a code". A link can't carry the data reliably — the
