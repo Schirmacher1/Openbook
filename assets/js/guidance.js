@@ -14,7 +14,7 @@
  */
 
 import { housingModel, solvePrice, parseNum } from './calc.js';
-import { DTI_APPROVAL, DTI_DU_CEILING, DTI_FHA_CEILING } from './data.js';
+import { DTI_APPROVAL, DTI_DU_CEILING, DTI_FHA_CEILING, K401_ELECTIVE_LIMIT } from './data.js';
 
 /* ---------------------------------------------------------------------------
  * The benchmarks
@@ -34,6 +34,7 @@ export const BENCHMARKS = [
   {
     id: 'ramsey',
     name: 'Ramsey',
+    short: 'Ramsey',
     rule: '25% of take-home pay, on a 15-year fixed',
     basis: 'monthly take-home pay',
     source: 'Ramsey Solutions',
@@ -45,6 +46,7 @@ export const BENCHMARKS = [
   {
     id: 'moneyguy',
     name: 'The Money Guy — 3/5/25',
+    short: 'The Money Guy',
     rule: '25% of gross income',
     basis: 'monthly gross income',
     source: 'The Money Guy Show',
@@ -58,6 +60,7 @@ export const BENCHMARKS = [
   {
     id: 'conventional',
     name: 'The 28/36 rule',
+    short: 'the 28/36 rule',
     rule: '28% of gross for housing, 36% including all debt',
     basis: 'monthly gross income',
     source: 'The classic underwriting rule of thumb',
@@ -74,6 +77,7 @@ export const BENCHMARKS = [
   {
     id: 'approval',
     name: 'What a lender will approve',
+    short: "a lender's ceiling",
     rule: `${Math.round(DTI_APPROVAL * 100)}% of gross, counting all debt`,
     basis: 'monthly gross income',
     source: 'Fannie Mae / conventional underwriting',
@@ -93,6 +97,7 @@ export const BENCHMARKS = [
   {
     id: 'hud',
     name: 'The cost-burden line',
+    short: 'the federal cost-burden line',
     rule: '30% of gross income',
     basis: 'monthly gross income',
     source: 'HUD',
@@ -241,32 +246,74 @@ export function readiness(result, state) {
   // Deliberately counts the 401(k) only: Openbook can't see an IRA, a brokerage
   // account or an employer match, so anything else would be a guess.
   const retirementRate = result.gross > 0 ? result.k401Annual / result.gross : 0;
+
+  // A rate target has to be read against the account's legal ceiling. At
+  // $200,000, 15% of gross is $30,000 — more than §402(g) allows into a 401(k)
+  // at all — so the reachable target is the limit, not the rate. Without this
+  // the check warns high earners about a shortfall no 401(k) can close.
+  const capRate = result.gross > 0 ? K401_ELECTIVE_LIMIT / result.gross : Infinity;
+  const capBinds = capRate < RETIREMENT_FLOOR;
+  const floorRate = Math.min(RETIREMENT_FLOOR, capRate);
+  const targetRate = Math.min(RETIREMENT_TARGET, capRate);
+
+  // Compared on the whole percentages actually printed, so the verdict never
+  // contradicts the label: "401(k) at 12% of gross" sitting under a 12% target
+  // is a pass, not a miss by a quarter of a point.
+  const shownPct = Math.round(retirementRate * 100);
+  const meetsFloor = shownPct >= Math.round(floorRate * 100);
+  const meetsTarget = shownPct >= Math.round(targetRate * 100);
+  const maxed = result.k401Annual >= K401_ELECTIVE_LIMIT - 1;
+
+  const capNote = `The 2026 401(k) limit is ${currency(K401_ELECTIVE_LIMIT)} a year, and 15% of ${
+    currency(result.gross)} would be ${currency(result.gross * RETIREMENT_FLOOR)} — more than a 401(k) can hold. `
+    + `You're at ${currency(result.k401Annual)}, so the rate target is already as close as this account gets; `
+    + 'going higher means an IRA or a taxable account, which Openbook never sees.';
+
   checks.push({
     id: 'retirement',
-    label: `401(k) at ${(retirementRate * 100).toFixed(0)}% of gross`,
-    status: retirementRate >= RETIREMENT_TARGET ? 'pass' : retirementRate >= RETIREMENT_FLOOR ? 'pass' : 'caution',
-    detail: retirementRate >= RETIREMENT_TARGET
-      ? 'At or above the 25% of gross The Money Guy targets, and comfortably past Ramsey\'s 15%.'
-      : retirementRate >= RETIREMENT_FLOOR
-        ? 'Past Ramsey\'s 15% of gross; The Money Guy aims for 25%. Openbook can only see your 401(k), so an IRA, a brokerage account or an employer match would push this higher.'
-        : `Below the 15% of gross Ramsey suggests — ${currency(result.gross * RETIREMENT_FLOOR / 12)}/mo would get you there. Openbook only sees your 401(k), so an IRA or employer match isn't counted.`,
+    label: `401(k) at ${shownPct}% of gross${
+      maxed ? ' — at the IRS limit' : capBinds && meetsFloor ? ' — as high as a 401(k) goes' : ''}`,
+    status: meetsFloor ? 'pass' : 'caution',
+    detail: capBinds && meetsFloor
+      ? capNote
+      : meetsTarget
+        ? 'At or above the 25% of gross The Money Guy targets, and comfortably past Ramsey\'s 15%.'
+        : meetsFloor
+          ? 'Past Ramsey\'s 15% of gross; The Money Guy aims for 25%. Openbook can only see your 401(k), so an IRA, a brokerage account or an employer match would push this higher.'
+          : capBinds
+            ? `Short of what a 401(k) can hold — ${currency(K401_ELECTIVE_LIMIT / 12)}/mo would max it out at ${
+              currency(K401_ELECTIVE_LIMIT)} for the year. 15% of your gross would be more than the account allows, so the limit is the target here.`
+            : `Below the 15% of gross Ramsey suggests — ${currency(result.gross * RETIREMENT_FLOOR / 12)}/mo would get you there. Openbook only sees your 401(k), so an IRA or employer match isn't counted.`,
     source: 'Ramsey · The Money Guy'
   });
 
   /* --- Share of income -------------------------------------------------- */
   const shareTakeHome = takeHome > 0 ? planned.total / takeHome : 0;
   const shareGross = result.grossMonthly > 0 ? planned.total / result.grossMonthly : 0;
+
+  // Three of the four lines here measure gross pay: The Money Guy's 25%, the
+  // 28/36 rule's 28% and HUD's 30%. Ramsey's 25% is the outlier — it measures
+  // take-home, which makes it far and away the strictest, and failing the whole
+  // check on it alone marked plans that clear every other published figure.
+  // So the verdict follows the gross measure, and the detail names Ramsey as
+  // the one still outstanding rather than burying it.
+  const clearsGross = shareGross <= 0.25;
+  const clearsRamsey = shareTakeHome <= 0.25;
   checks.push({
     id: 'share',
     label: `Housing takes ${(shareTakeHome * 100).toFixed(0)}% of take-home, ${(shareGross * 100).toFixed(0)}% of gross`,
-    status: shareGross >= 0.5 ? 'fail' : shareTakeHome <= 0.25 && shareGross <= 0.25 ? 'pass' : shareGross <= 0.30 ? 'caution' : 'fail',
+    status: shareGross >= 0.5 ? 'fail' : clearsGross ? 'pass' : shareGross <= 0.30 ? 'caution' : 'fail',
     detail: shareGross >= 0.5
       ? 'Above half of gross income — the threshold federal statistics call "severely cost burdened".'
-      : shareTakeHome <= 0.25 && shareGross <= 0.25
-        ? 'Inside 25% on both measures, so it clears Ramsey and The Money Guy at once.'
-        : shareGross <= 0.30
-          ? 'Over 25% of at least one measure, but still under the 30% of gross where federal statistics would call you "cost burdened".'
-          : 'Over 30% of gross — the line above which federal housing statistics count a household as "cost burdened".',
+      : clearsGross && clearsRamsey
+        ? 'Inside 25% on both measures, so it clears every line here — Ramsey included, and his is the strictest.'
+        : clearsGross
+          ? `Inside The Money Guy's 25% of gross, under the 28% the 28/36 rule allows and well under HUD's 30%. Ramsey measures the same payment against take-home pay, where it comes to ${
+            (shareTakeHome * 100).toFixed(0)}% — his 25% is the strictest line here and the only one this misses.`
+          : shareGross <= 0.30
+            ? `Over 25% of gross, so it misses both Ramsey and The Money Guy, though it stays under the 30% of gross where federal statistics would call you "cost burdened"${
+              shareGross <= 0.28 ? ' and inside the 28/36 rule\'s 28%' : ''}.`
+            : 'Over 30% of gross — the line above which federal housing statistics count a household as "cost burdened".',
     source: 'Ramsey · The Money Guy · HUD'
   });
 

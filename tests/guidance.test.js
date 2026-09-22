@@ -264,3 +264,107 @@ test('guidance survives an empty state without throwing', () => {
   }
   assert.equal(readiness(result, state).length, 5);
 });
+
+/* --------------------------------------------------------------------------
+ * The retirement check against the IRS limit
+ *
+ * A percentage target is only reachable while the account can hold it. Above
+ * roughly $163,000, 15% of gross is more than §402(g) allows into a 401(k), so
+ * a check that kept asking for the rate would be warning people about the law.
+ * ------------------------------------------------------------------------ */
+
+const retirementCheck = (state) => readiness(compute(state), state).find((c) => c.id === 'retirement');
+const shareCheck = (state) => readiness(compute(state), state).find((c) => c.id === 'share');
+
+const withSalary = (salary, pct) => {
+  const state = createDefaultState();
+  state.salary = salary;
+  state.k401 = { pct, mode: 'pct', type: 'traditional' };
+  return state;
+};
+
+test('12% of $200k passes: it is all a 401(k) can hold', () => {
+  // 15% of $200,000 is $30,000 — $5,500 more than the 2026 limit allows in.
+  const check = retirementCheck(withSalary(200000, 12));
+  assert.equal(check.status, 'pass');
+  assert.match(check.detail, /24,500/);
+  assert.match(check.detail, /IRA|taxable/);
+});
+
+test('12% of $80k is still short: the limit is nowhere near binding', () => {
+  // 15% of $80,000 is $12,000, which fits in a 401(k) with room to spare.
+  const check = retirementCheck(withSalary(80000, 12));
+  assert.equal(check.status, 'caution');
+  assert.match(check.detail, /15% of gross/);
+});
+
+test('15% of $80k passes', () => {
+  assert.equal(retirementCheck(withSalary(80000, 15)).status, 'pass');
+});
+
+test('a maxed-out 401(k) says so in the label', () => {
+  const state = createDefaultState();
+  state.salary = 300000;
+  state.k401 = { pct: 24500 / 12, mode: 'dollar', type: 'traditional' };
+  const check = retirementCheck(state);
+  assert.equal(check.status, 'pass');
+  assert.match(check.label, /IRS limit/);
+});
+
+test('the verdict never contradicts the percentage on the label', () => {
+  // Salaries either side of the point where the limit starts to bind, at the
+  // rate each one's label would print.
+  for (const salary of [60000, 120000, 163000, 200000, 400000]) {
+    const state = createDefaultState();
+    state.salary = salary;
+    const capRate = 24500 / salary;
+    const rate = Math.min(0.15, capRate) * 100;
+    state.k401 = { pct: rate, mode: 'pct', type: 'traditional' };
+    const check = retirementCheck(state);
+    assert.equal(check.status, 'pass', `${salary} at ${rate.toFixed(1)}% should pass`);
+  }
+});
+
+/* --------------------------------------------------------------------------
+ * The housing-share check
+ *
+ * Three of the four lines measure gross pay; only Ramsey measures take-home,
+ * and his is much the strictest. Failing the whole check on his line alone
+ * marked plans that clear every other published figure.
+ * ------------------------------------------------------------------------ */
+
+/** A state whose ledger housing payment is a given share of gross. */
+const atShareOfGross = (share) => {
+  const state = createDefaultState();
+  state.salary = 200000;
+  state.priceTestMode = 'manual';
+  const result = compute(state);
+  const target = result.grossMonthly * share;
+  // Solve a price whose payment hits the target share.
+  state.testPrice = String(Math.round(solvePrice(target, housingModel(state))));
+  return state;
+};
+
+test('under 25% of gross passes even when Ramsey\'s take-home line is missed', () => {
+  const state = atShareOfGross(0.21);
+  const result = compute(state);
+  const check = shareCheck(state);
+  assert.ok(result.housingShareOfTakeHome > 0.25, 'the take-home share must exceed Ramsey\'s 25%');
+  assert.equal(check.status, 'pass');
+  assert.match(check.detail, /Ramsey/);
+  assert.match(check.detail, /strictest/);
+});
+
+test('over 25% but under 30% of gross is a caution', () => {
+  assert.equal(shareCheck(atShareOfGross(0.27)).status, 'caution');
+});
+
+test('over 30% of gross fails: the cost-burden line', () => {
+  const check = shareCheck(atShareOfGross(0.34));
+  assert.equal(check.status, 'fail');
+  assert.match(check.detail, /cost burdened/);
+});
+
+test('over half of gross fails as severely cost burdened', () => {
+  assert.match(shareCheck(atShareOfGross(0.55)).detail, /severely cost burdened/);
+});

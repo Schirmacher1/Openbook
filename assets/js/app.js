@@ -545,6 +545,13 @@ function renderPaymentViz(payment) {
  * Ledger
  * ------------------------------------------------------------------------- */
 
+// What leaves before the money is ever yours to allocate, in the order it
+// leaves: tax first, then whatever your employer holds back.
+const LEDGER_PRE_ROWS = [
+  { key: 'tax', label: 'Tax' },
+  { key: 'payroll', label: '401(k) & pre-tax deductions' }
+];
+
 const LEDGER_ROWS = [
   { key: 'savings', label: 'Savings (post-tax)' },
   { key: 'debts', label: 'Debts' },
@@ -553,10 +560,10 @@ const LEDGER_ROWS = [
 ];
 
 /** Built once; only the figures inside change, so an open row stays open. */
-function buildLedgerRows() {
-  const container = $('ledgerRows');
+function buildLedgerRows(containerId = 'ledgerRows', rows = LEDGER_ROWS) {
+  const container = $(containerId);
   container.textContent = '';
-  for (const row of LEDGER_ROWS) {
+  for (const row of rows) {
     const details = document.createElement('details');
     details.className = 'ledger-row';
     details.id = `ledgerRow-${row.key}`;
@@ -581,7 +588,7 @@ function buildLedgerRows() {
   }
 }
 
-function detailRows(container, rows, emptyText) {
+function detailRows(container, rows, emptyText, { negative = false } = {}) {
   container.textContent = '';
   if (!rows.length) {
     const empty = document.createElement('p');
@@ -597,6 +604,7 @@ function detailRows(container, rows, emptyText) {
     const stat = document.createElement('div');
     stat.className = 'stat';
     stat.classList.toggle('is-excluded', Boolean(row.excluded));
+    stat.classList.toggle('is-negative', negative);
     const dt = document.createElement('dt');
     dt.textContent = row.label;
     if (row.excluded) {
@@ -606,21 +614,83 @@ function detailRows(container, rows, emptyText) {
       dt.appendChild(tag);
     }
     const dd = document.createElement('dd');
-    dd.textContent = money(row.amount);
+    dd.textContent = negative ? moneyNeg(row.amount) : money(row.amount);
     stat.append(dt, dd);
     list.appendChild(stat);
   }
   container.appendChild(list);
 }
 
+/** A line of plain context under a detail table. */
+function detailNote(container, text) {
+  const note = document.createElement('p');
+  note.className = 'hint';
+  note.textContent = text;
+  container.appendChild(note);
+}
+
 function renderLedger(result) {
   const { ledger, paycheck } = result;
 
+  // --- gross, then the two deductions, then take-home ---
+  $('ledgerGross').textContent = money(ledger.grossMonthly);
+
+  for (const row of LEDGER_PRE_ROWS) {
+    $(`ledgerValue-${row.key}`).textContent = moneyNeg(ledger.deductions[row.key]);
+  }
+
+  detailRows(
+    $('ledgerDetail-tax'),
+    [
+      { label: 'Federal income tax', amount: paycheck.federalTax / 12 },
+      { label: 'State income tax', amount: paycheck.stateTax / 12 },
+      { label: 'Social Security & Medicare', amount: paycheck.ficaTax / 12 }
+    ],
+    '',
+    { negative: true }
+  );
+  detailNote(
+    $('ledgerDetail-tax'),
+    `${pct(paycheck.effectiveRate, 1)} of gross pay, or ${money(paycheck.federalTax + paycheck.stateTax + paycheck.ficaTax)} a year.`
+      + (result.isTraditional && result.k401Monthly > 0
+        ? ' Your traditional 401(k) has already been taken off the income this is charged on.'
+        : '')
+  );
+
+  // The whole 401(k) belongs on this line whichever type it is, because all of
+  // it left the paycheck — otherwise the cascade doesn't reach take-home pay.
+  const payrollItems = [];
+  if (result.k401Monthly > 0) {
+    payrollItems.push({
+      label: `401(k) — ${result.isTraditional ? 'traditional' : 'Roth'}`,
+      amount: result.k401Monthly
+    });
+  }
+  for (const item of state.savingsItems) {
+    if (item.pretax && item.mode !== 'pct' && !item.excluded) {
+      payrollItems.push({ label: `${item.label || 'Untitled'} (pre-tax)`, amount: parseNum(item.value) });
+    }
+  }
+  for (const item of state.expenseItems) {
+    if (item.pretax && !item.excluded) {
+      payrollItems.push({ label: `${item.label || 'Untitled'} (pre-tax)`, amount: parseNum(item.value) });
+    }
+  }
+  detailRows($('ledgerDetail-payroll'), payrollItems, 'Nothing leaves your pay before you see it.', { negative: true });
+  if (payrollItems.length) {
+    detailNote(
+      $('ledgerDetail-payroll'),
+      `${money(ledger.deductions.payroll * 12)} a year. `
+        + (result.isTraditional
+          ? 'A traditional 401(k) and the pre-tax rows lower the tax above as well as your take-home pay.'
+          : "A Roth 401(k) is taken after tax, so it lowers your take-home pay without lowering the tax above.")
+    );
+  }
+
   $('ledgerIncome').textContent = money(paycheck.netMonthly);
-  const payrollDeducted = result.k401Monthly + result.pretaxMonthly;
-  $('ledgerIncomeHint').textContent = payrollDeducted > 0
-    ? `${money(payrollDeducted)}/mo of 401(k) and pre-tax deductions already left your paycheck before this figure, so they aren't listed again below.`
-    : '';
+  $('ledgerIncomeHint').textContent =
+    `${money(paycheck.netAnnual)} a year — ${money(result.takeHomePerPeriod)} ${result.freq.short}. `
+    + 'Everything below comes out of this figure.';
 
   for (const row of LEDGER_ROWS) {
     $(`ledgerValue-${row.key}`).textContent = money(ledger.debits[row.key]);
@@ -789,7 +859,25 @@ function renderBenchmarks(result) {
     ? `A ${money(planned.price)} house — ${money(planned.total)} a month —`
     : `At ${money(planned.total)} a month, your plan`;
 
-  $('rulesScore').textContent = `${score.passed} of ${score.total}`;
+  // "2 of 3" next to a list of four names reads as an arithmetic error. The
+  // score counts the rules that are advice; the two ceilings are shown on the
+  // chart but not scored, so the caption is built from the same split.
+  const scoreEl = $('rulesScore');
+  scoreEl.textContent = `${score.passed} of ${score.total}`;
+  const unit = document.createElement('span');
+  unit.className = 'rules-score-unit';
+  unit.textContent = score.total === 1 ? ' rule met' : ' rules met';
+  scoreEl.appendChild(unit);
+
+  const sentenceCase = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+  const nameList = (items) => {
+    const names = items.map((b) => b.short || b.name);
+    if (names.length <= 1) return names.join('');
+    return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  };
+  $('rulesSummarySub').textContent =
+    `${nameList(evaluated.filter((b) => !b.isYou && !b.isCeiling))}, run against your numbers. `
+    + `${sentenceCase(nameList(evaluated.filter((b) => b.isCeiling)))} are shown too, but they're limits rather than targets, so they aren't scored \u2192`;
 
   const verdict = $('rulesVerdict');
   verdict.textContent = '';
@@ -923,17 +1011,6 @@ function paint({ animate = false } = {}) {
   $('insHint').textContent = state.insMode === 'estimate'
     ? `${INS_TIER_TEXT[result.model.insTier]} Estimated at ${money(result.payment.insurance)}/mo for this price.`
     : 'Used as a flat monthly premium at any price.';
-
-  // --- tax ---
-  $('taxGross').textContent = money(result.paycheck.gross);
-  $('taxFed').textContent = moneyNeg(result.paycheck.federalTax);
-  $('taxState').textContent = moneyNeg(result.paycheck.stateTax);
-  $('taxFica').textContent = moneyNeg(result.paycheck.ficaTax);
-  // The whole 401(k) belongs on this line whichever type it is, because all of it
-  // left the paycheck — otherwise the column doesn't add up to take-home pay.
-  $('taxPretax').textContent = moneyNeg(result.k401Annual + result.pretaxMonthly * 12);
-  $('taxNet').textContent = money(result.paycheck.netAnnual);
-  $('taxSummaryMeta').textContent = `${pct(result.paycheck.effectiveRate, 1)} effective rate`;
 
   renderLedger(result);
   renderBenchmarks(result);
@@ -1399,6 +1476,7 @@ function boot() {
   mountPartnerSlots();
   visitedSteps.add(tabs[0].id);
   renderGate();
+  buildLedgerRows('ledgerPreRows', LEDGER_PRE_ROWS);
   buildLedgerRows();
 
   let restored = null;
