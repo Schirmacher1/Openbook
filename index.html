@@ -198,7 +198,10 @@
         Items ending in an ellipsis open a panel below; the rest act at once.
       -->
       <div class="toolbar">
-        <p class="toolbar-status" id="saveStatus">Not saved yet — this page forgets everything when you close it.</p>
+        <div class="toolbar-statuses">
+          <p class="toolbar-viewing" id="viewingStatus" hidden></p>
+          <p class="toolbar-status" id="saveStatus">Not saved yet — this page forgets everything when you close it.</p>
+        </div>
         <div class="menu-wrap">
           <button type="button" class="btn btn-primary btn-sm menu-trigger" id="btnMenu"
                   aria-haspopup="menu" aria-expanded="false" aria-controls="actionMenu">Manage</button>
@@ -673,6 +676,7 @@
           <div class="result-card save-card reveal-on-complete">
             <p class="result-eyebrow">Keep these numbers</p>
             <p class="save-card-sub" id="saveCardSub">This page forgets everything when you close it. Saving keeps them on this device — nothing is uploaded.</p>
+            <p class="toolbar-viewing" id="viewingStatusEnd" hidden></p>
             <div class="save-card-actions">
               <button type="button" class="btn btn-primary btn-sm" id="btnSaveEnd">Save to this device</button>
               <button type="button" class="btn btn-ghost btn-sm" id="btnSaveViewEnd">Save as a named view…</button>

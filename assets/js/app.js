@@ -73,6 +73,15 @@ let state = createDefaultState();
 let saveTimer = null;
 let lastResult = null;
 
+/**
+ * The saved view currently on screen, or null when the numbers are just the
+ * numbers — typed in, restored from a device save, or pasted from a code.
+ * Set only where the numbers on screen are known to exactly match a saved
+ * view (loading one, or saving the current numbers under a name), and
+ * cleared the instant an edit could make that untrue.
+ */
+let activeView = null;
+
 /* ---------------------------------------------------------------------------
  * Theme
  * ------------------------------------------------------------------------- */
@@ -1254,6 +1263,11 @@ function paint({ animate = false } = {}) {
 
 /** Something changed: recompute, autosave if we're already saving. */
 function touched() {
+  if (activeView) {
+    activeView = null;
+    renderViewingStatus();
+    if (!$('viewsPanel').hidden) renderViews();
+  }
   paint();
   scheduleSave();
 }
@@ -1309,14 +1323,30 @@ function scheduleSave() {
   saveTimer = setTimeout(persist, 900);
 }
 
-function applyState(next, { message, animate = true } = {}) {
+function applyState(next, { message, animate = true, view = null } = {}) {
   state = next;
+  activeView = view;
+  renderViewingStatus();
   syncInputs();
   renderSegments();
   render401kValue();
   renderLists();
   paint({ animate });
   if (message) banner(message);
+}
+
+/**
+ * "Viewing …" wherever the save status already sits — the toolbar and the
+ * result card's own save prompt — so it's visible whether you're at the top
+ * of the page or scrolled down to the numbers it produced.
+ */
+function renderViewingStatus() {
+  const text = activeView ? `Viewing the saved view "${activeView.name}" — editing anything here won't change what's saved.` : '';
+  for (const id of ['viewingStatus', 'viewingStatusEnd']) {
+    const el = $(id);
+    el.textContent = text;
+    el.hidden = !text;
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -1686,6 +1716,7 @@ function startRename(view, button) {
 
     try {
       renameView(view.id, next);
+      if (activeView?.id === view.id) { activeView = { ...activeView, name: next }; renderViewingStatus(); }
       toast(`Renamed to "${next}"`);
     } catch (e) {
       toast('A view needs a name', true);
@@ -1732,6 +1763,7 @@ function askToDelete(view, actions) {
   yes.addEventListener('click', () => {
     deleteView(view.id);
     compareSelection.delete(view.id);
+    if (activeView?.id === view.id) { activeView = null; renderViewingStatus(); }
     renderViews();
     toast(`Deleted "${view.name}"`);
   });
@@ -1782,9 +1814,11 @@ function renderViews() {
 
   for (const view of views) {
     const result = compute(view.state);
+    const isActive = activeView?.id === view.id;
 
     const row = document.createElement('div');
     row.className = 'view-row';
+    row.classList.toggle('view-row-active', isActive);
 
     const main = document.createElement('div');
     main.className = 'view-main';
@@ -1793,6 +1827,8 @@ function renderViews() {
     // window.prompt(), which a sandboxed frame — the preview, an embed, some
     // in-app browsers — simply refuses to show, so the button did nothing at
     // all. Editing in place needs no dialog and is one click shorter.
+    const nameRow = document.createElement('div');
+    nameRow.className = 'view-name-row';
     const name = document.createElement('button');
     name.type = 'button';
     name.className = 'view-name';
@@ -1800,10 +1836,17 @@ function renderViews() {
     name.title = 'Click to rename';
     name.setAttribute('aria-label', `Rename the view ${view.name}`);
     name.addEventListener('click', () => startRename(view, name));
+    nameRow.appendChild(name);
+    if (isActive) {
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = 'Viewing';
+      nameRow.appendChild(badge);
+    }
     const meta = document.createElement('p');
     meta.className = 'view-meta';
     meta.textContent = `${money(result.price)} · ${money(result.payment.total)}/mo · saved ${dayMonth(view.savedAt)}`;
-    main.append(name, meta);
+    main.append(nameRow, meta);
 
     const actions = document.createElement('div');
     actions.className = 'view-actions';
@@ -1833,10 +1876,14 @@ function renderViews() {
     loadBtn.textContent = 'Load';
     loadBtn.setAttribute('aria-label', `Load the view ${view.name}`);
     loadBtn.addEventListener('click', () => {
-      applyState(view.state, { message: `Loaded the view "${view.name}". Saving over it won't change anything else you've stored.` });
-        persist();
+      applyState(view.state, {
+        message: `Loaded the view "${view.name}". Saving over it won't change anything else you've stored.`,
+        view: { id: view.id, name: view.name }
+      });
+      persist();
       $('viewName').value = view.name;
       toast(`Loaded "${view.name}"`);
+      renderViews();
     });
 
     const shareBtn = document.createElement('button');
@@ -1954,7 +2001,11 @@ function doSaveView() {
     return;
   }
   try {
-    const { replaced } = saveView(name, state);
+    const { view, replaced } = saveView(name, state);
+    // The numbers on screen now exactly match this view, whether it was
+    // freshly created or an existing one just updated to the current state.
+    activeView = { id: view.id, name: view.name };
+    renderViewingStatus();
     renderViews();
     toast(replaced ? `Updated "${name}"` : `Saved "${name}"`);
   } catch (e) {
