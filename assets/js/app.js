@@ -121,6 +121,63 @@ function banner(message) {
 
 const tabs = Array.from(document.querySelectorAll('.tab'));
 
+/* ---------------------------------------------------------------------------
+ * The step gate
+ *
+ * The figures stay hidden until all three steps have been opened. Landing on a
+ * finished-looking total makes the remaining steps read as decoration, and
+ * anchors you on an answer computed from numbers you haven't entered. Once
+ * revealed it stays revealed — going back to step 1 shouldn't hide your own
+ * results again.
+ * ------------------------------------------------------------------------- */
+
+const STEP_LABELS = {
+  'tab-income': 'What you earn',
+  'tab-outgoings': 'What goes out',
+  'tab-home': 'The home and loan'
+};
+
+const visitedSteps = new Set();
+let revealed = false;
+
+/** Restored or pasted numbers are already somebody's finished input. */
+function revealResults() {
+  for (const tab of tabs) visitedSteps.add(tab.id);
+  renderGate();
+}
+
+function renderGate() {
+  if (!revealed) revealed = tabs.every((tab) => visitedSteps.has(tab.id));
+  document.body.dataset.steps = revealed ? 'complete' : 'incomplete';
+  if (revealed) return;
+
+  const remaining = tabs.filter((tab) => !visitedSteps.has(tab.id));
+  $('gateHeading').textContent = remaining.length === tabs.length
+    ? 'Three quick steps'
+    : `${remaining.length} step${remaining.length === 1 ? '' : 's'} to go`;
+
+  const list = $('gateSteps');
+  list.textContent = '';
+  for (const tab of tabs) {
+    const done = visitedSteps.has(tab.id);
+    const item = document.createElement('li');
+    item.className = done ? 'is-done' : '';
+    const mark = document.createElement('span');
+    mark.className = 'gate-mark';
+    mark.textContent = done ? '\u2713' : '';
+    mark.setAttribute('aria-hidden', 'true');
+    const label = document.createElement('span');
+    label.textContent = STEP_LABELS[tab.id] || tab.textContent.trim();
+    item.append(mark, label);
+    list.appendChild(item);
+  }
+
+  const next = remaining[0];
+  const button = $('gateNext');
+  button.textContent = next === tabs[0] ? 'Start with your income' : `Next: ${STEP_LABELS[next.id].toLowerCase()}`;
+  button.dataset.gotoTab = next.id;
+}
+
 function selectTab(id, { focus = false } = {}) {
   tabs.forEach((tab) => {
     const isActive = tab.id === id;
@@ -130,6 +187,9 @@ function selectTab(id, { focus = false } = {}) {
     $(tab.getAttribute('aria-controls')).hidden = !isActive;
   });
   if (focus) $(id).focus();
+
+  visitedSteps.add(id);
+  renderGate();
 }
 
 tabs.forEach((tab) => {
@@ -148,6 +208,11 @@ document.querySelectorAll('[data-goto-tab]').forEach((button) => {
     selectTab(button.dataset.gotoTab);
     $('calculator').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
+});
+
+$('gateNext').addEventListener('click', () => {
+  selectTab($('gateNext').dataset.gotoTab);
+  $('calculator').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
 /* ---------------------------------------------------------------------------
@@ -1255,6 +1320,8 @@ $('btnLoadCode').addEventListener('click', () => {
     applyState(next, { message: "Loaded those numbers. They've replaced what was on this page in your browser — not what's saved on their device." });
     input.value = '';
     showPanel(null);
+    revealResults();
+    mobileSummaryUpdate();
     persist();
     toast('Loaded');
   } catch (e) {
@@ -1303,6 +1370,7 @@ onScroll();
 
 // The compact bottom bar shows up once the calculator is on screen but the
 // results panel has scrolled past — never while you can already see the figures.
+let mobileSummaryUpdate = () => {};
 const summary = $('mobileSummary');
 const resultsPanel = $('results');
 const calculator = $('calculator');
@@ -1310,12 +1378,15 @@ const calculator = $('calculator');
 if ('IntersectionObserver' in window) {
   let inCalculator = false;
   let resultsVisible = false;
-  const update = () => { summary.hidden = !(inCalculator && !resultsVisible); };
+  const update = () => { summary.hidden = !(revealed && inCalculator && !resultsVisible); };
 
   new IntersectionObserver(([entry]) => { inCalculator = entry.isIntersecting; update(); }, { threshold: 0 })
     .observe(calculator);
   new IntersectionObserver(([entry]) => { resultsVisible = entry.isIntersecting; update(); }, { threshold: 0.25 })
     .observe(resultsPanel);
+
+  // Revealing the results is what makes the bar eligible in the first place.
+  mobileSummaryUpdate = update;
 }
 
 $('year').textContent = String(new Date().getFullYear());
@@ -1326,6 +1397,8 @@ $('year').textContent = String(new Date().getFullYear());
 
 function boot() {
   mountPartnerSlots();
+  visitedSteps.add(tabs[0].id);
+  renderGate();
   buildLedgerRows();
 
   let restored = null;
@@ -1337,6 +1410,7 @@ function boot() {
     autosaveEnabled = true;
     applyState(state, { message: 'Restored the numbers you saved here earlier.' });
     setSaveStatus(restored.savedAt);
+    revealResults();
     return;
   }
 
@@ -1347,6 +1421,7 @@ function boot() {
     state = draft;
     applyState(state);
     setSaveStatus(null, { draft: true });
+    revealResults();
     return;
   }
 

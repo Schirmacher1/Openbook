@@ -94,6 +94,31 @@ smaller states use a simplified approximation of their real brackets. Mortgage r
 property tax and insurance are broad national estimates by credit tier and state, not
 quotes. Openbook sizes a price around your own budget, not a lender's maximum.
 
+## The step gate
+
+The figures stay hidden until all three calculator steps have been opened. Until then the
+results slot holds a checklist with a "next step" button, the ledger and tax breakdown are
+hidden, the rules section shows a short notice instead of its chart, and the phone summary
+bar stays down.
+
+The reason is not ceremony. With the figures visible from the start, the answer becomes the
+thing you look at, the remaining steps read as decoration, and the number you're anchored
+on was computed from numbers you haven't entered — the example household's, not yours.
+
+Details that matter:
+
+- **It only ever reveals.** Going back to step 1 doesn't re-hide your own results.
+- **Restored input skips it.** A saved state, a loaded view or a pasted share code is
+  already somebody's finished input, so those call `revealResults()` and the gate never
+  shows.
+- **Nothing leaks.** It's a `data-steps` attribute on `<body>` plus two classes —
+  `.reveal-on-complete` and `.show-until-complete` — so every figure on the page is
+  covered by the same switch rather than each being hidden by hand. Verified by asserting
+  no `$NNN,NNN` string appears anywhere in `document.body.innerText` on arrival.
+
+Each panel footer also carries a "Step N of 3" label, so the sequence is legible without
+having to infer it from the tab badges.
+
 ## Rules of thumb
 
 `assets/js/guidance.js` runs the best-known published guidance against the same numbers

@@ -1170,3 +1170,47 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
   .view-actions { width: 100%; }
   .view-actions .btn { flex: 1 1 auto; }
 }
+
+/* ==========================================================================
+   The step gate
+   ========================================================================== */
+
+body[data-steps="incomplete"] .reveal-on-complete { display: none !important; }
+body:not([data-steps="incomplete"]) .show-until-complete { display: none !important; }
+
+.gate-card { background: var(--surface); border-color: var(--border); }
+.gate-heading {
+  font-family: var(--font-display); font-size: 1.5rem; font-weight: 600;
+  color: var(--ink); line-height: 1.15; margin-top: 2px;
+}
+
+.gate-steps { list-style: none; margin: 16px 0 18px; padding: 0; display: grid; gap: 9px; counter-reset: gate; }
+.gate-steps li {
+  display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: center;
+  font-size: 14.5px; font-weight: 600; color: var(--ink-faint);
+  counter-increment: gate;
+}
+.gate-steps li.is-done { color: var(--ink); }
+.gate-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  font-size: 11px; font-weight: 800;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--ink-faint);
+}
+.gate-mark::before { content: counter(gate); }
+.gate-steps li.is-done .gate-mark {
+  background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-text);
+}
+.gate-steps li.is-done .gate-mark::before { content: none; }
+
+.gate-notice {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 18px 20px; font-size: 14.5px; color: var(--ink-soft); box-shadow: var(--shadow-sm);
+  max-width: 62ch;
+}
+
+/* Which step you're on, in each panel's footer. */
+.panel-step {
+  font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-faint); align-self: center;
+}
