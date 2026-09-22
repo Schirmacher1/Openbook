@@ -63,10 +63,21 @@ export function pmiBaseForDownPct(pct) {
  * ------------------------------------------------------------------------- */
 
 /**
- * Federal, state and FICA tax on a salary, given whatever leaves the paycheck
- * before tax (traditional 401(k) and pre-tax payroll items).
+ * Federal, state and FICA tax on a salary, and what's left afterwards.
+ *
+ * The two 401(k) types have to be passed separately, because they do different
+ * things and it is easy to conflate them:
+ *
+ *   traditional — lowers taxable income AND leaves the paycheck
+ *   Roth        — leaves the paycheck, taxed on the way out
+ *
+ * Neither lowers FICA wages. Pre-tax payroll items (health premiums, an HSA
+ * through payroll) lower both taxable income and FICA wages.
  */
-export function computePaycheck({ salary, filing, stateCode, traditional401kAnnual = 0, pretaxAnnual = 0 }) {
+export function computePaycheck({
+  salary, filing, stateCode,
+  traditional401kAnnual = 0, roth401kAnnual = 0, pretaxAnnual = 0
+}) {
   const gross = Math.max(0, salary);
   const brackets = BRACKETS[filing] || BRACKETS.single;
   const stateInfo = STATE_DATA[stateCode] || STATE_DATA.CO;
@@ -85,7 +96,10 @@ export function computePaycheck({ salary, filing, stateCode, traditional401kAnnu
   if (ficaWages > addlThreshold) medicare += (ficaWages - addlThreshold) * ADDL_MEDICARE_RATE;
   const ficaTax = socialSecurity + medicare;
 
-  const netAnnual = gross - federalTax - stateTax - ficaTax - traditional401kAnnual - pretaxAnnual;
+  // Both kinds of contribution are gone before payday. Only the traditional one
+  // reduced the tax charged on the way.
+  const netAnnual = gross - federalTax - stateTax - ficaTax
+    - traditional401kAnnual - roth401kAnnual - pretaxAnnual;
 
   return {
     gross,
@@ -210,6 +224,7 @@ export function compute(state) {
     filing: state.filing,
     stateCode: state.stateCode,
     traditional401kAnnual: isTraditional ? k401Annual : 0,
+    roth401kAnnual: isTraditional ? 0 : k401Annual,
     pretaxAnnual: pretaxMonthly * 12
   });
 
