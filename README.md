@@ -549,6 +549,31 @@ characters — comfortably inside `LIMITS.shareCode`'s 64,000-character guard, w
 `tests/security.test.js` exercises the same way it does for a single state: refused before
 `atob` or `JSON.parse` ever see it.
 
+### Invite by text, kept deliberately apart from sharing numbers
+
+"Invite by text" (Manage menu) opens the visitor's own Messages app with a short message
+pre-filled — an invitation to try the page, plus its plain URL — and nothing else. It is
+not a fourth share scope: it never touches `state`, never calls `encodeShareBundle`, and
+carries none of the sender's numbers. `defaultInviteBody()` (`assets/js/app.js`) builds
+the message from `siteUrl()` — `location.origin + location.pathname`, dropping any query
+or hash so a share code sitting in the address bar is never forwarded by accident — and
+that's the whole of what it sends.
+
+The mechanism is an `sms:` URI, which is a plain navigation — the same thing that happens
+when you click any other link — so `connect-src 'none'` has nothing to say about it; no
+network request is made, no permission is needed, and no server ever sees the phone
+number, which stays local to the `sms:` link the browser hands to the OS. A phone number
+is optional: entered, it targets that contact directly (`sms:5551234567?body=...`); left
+blank, it opens Messages' own recipient picker (`sms:?body=...`), which sidesteps a real
+cross-platform inconsistency in how iOS and Android have historically parsed the query
+separator on a number. Whatever's typed into the number field is stripped to digits, `+`,
+spaces, parens and hyphens before it reaches the link — not because the field renders
+anywhere `innerHTML` could turn it hostile, but because a URI has no business carrying
+characters that were never a phone number.
+
+The message itself is editable, and editing survives closing and reopening the panel in
+the same session — the default text is a starting point, not a script.
+
 ### No browser dialogs, anywhere
 
 Nothing on the page depends on `window.confirm()`, `window.prompt()` or `alert()`. A

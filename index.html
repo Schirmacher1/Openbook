@@ -221,6 +221,10 @@
               <span class="mi-name">Paste a code…</span>
               <span class="mi-desc">Load numbers someone sent you</span>
             </button>
+            <button type="button" role="menuitem" id="btnInviteOpen">
+              <span class="mi-name">Invite by text…</span>
+              <span class="mi-desc">Send someone a link — not your numbers</span>
+            </button>
             <hr />
             <button type="button" role="menuitem" id="btnReset">
               <span class="mi-name">Start with empty fields</span>
@@ -301,6 +305,34 @@
             <input type="text" id="loadCodeInput" placeholder="Paste the code" autocomplete="off" spellcheck="false" />
             <button type="button" class="btn btn-primary btn-sm" id="btnLoadCode">Load</button>
           </div>
+        </div>
+      </div>
+
+      <!--
+        An invite is a different act from sharing your numbers, and the page
+        says so twice: once here, once in the message itself. It opens the
+        visitor's own Messages app with a link and nothing else — your salary,
+        debts and everything else in this form stay exactly where they are,
+        on this device, unless you separately use "Copy share code".
+      -->
+      <div class="drawer" id="invitePanel" hidden>
+        <div class="drawer-block">
+          <label class="drawer-title" for="inviteBody">Invite someone to try Openbook</label>
+          <p class="hint">Opens your own Messages app with a link, ready to send. <strong>Your numbers are never
+            part of this</strong> — it's the same page you started from, empty for them. Want to send your actual
+            numbers instead? Use "Copy share code" or a saved view's "Share" button.</p>
+
+          <div class="field">
+            <label for="invitePhone">Their number <span class="optional">optional</span></label>
+            <input type="tel" id="invitePhone" inputmode="tel" autocomplete="tel" placeholder="Leave blank to choose from Messages" />
+          </div>
+
+          <div class="field">
+            <label for="inviteBody">Message</label>
+            <textarea id="inviteBody" rows="3" spellcheck="false"></textarea>
+          </div>
+
+          <a id="btnInviteSend" class="btn btn-primary btn-sm" href="sms:">Open in Messages</a>
         </div>
       </div>
 
@@ -831,6 +863,10 @@
         <details>
           <summary>Can I share my numbers with a partner?</summary>
           <div class="details-body"><p>Yes, at whichever scope fits. "Copy share code" in the Manage menu packs just the numbers on screen. Open "Saved views" and each one has its own "Share" button — that sends one scenario, and it lands on their screen <em>and</em> in their library at once, so they don't have to re-save it to compare it against their own. "Share all views" sends your whole library in one code. Every one of them pastes into "Paste a code" the same way; the code <em>is</em> the data, nothing is uploaded, and pasting a views-only code never touches what's on their screen — it only adds to their library.</p></div>
+        </details>
+        <details>
+          <summary>What does "Invite by text" actually send?</summary>
+          <div class="details-body"><p>A link, and nothing else. It opens your own phone's Messages app with a short message pre-filled — "here's a calculator worth trying," plus the page's plain address — and you send it exactly like any other text, from your own number, through your own carrier. It never includes your salary, your debts, or anything else in this form; the person who gets it opens the same empty page you started from. If you want to send your <em>actual</em> numbers, that's a different button — "Copy share code," or a saved view's "Share" — and it works over whatever channel you paste it into, texting included. The two are kept apart on purpose: an invite is safe to send to anyone without a second thought, and a share code is your real figures, worth sending only where you'd want anyone to have them.</p></div>
         </details>
         <details>
           <summary>Is this financial advice?</summary>
