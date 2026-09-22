@@ -68,7 +68,6 @@ const commas = (n) => Math.round(Number.isFinite(n) ? n : 0).toLocaleString('en-
  * ------------------------------------------------------------------------- */
 
 let state = createDefaultState();
-let isExampleData = true;
 let saveTimer = null;
 let lastResult = null;
 
@@ -480,110 +479,6 @@ function renderPaymentViz(payment) {
   }
 }
 
-/**
- * Each ratio set against the limit the 28/36 rule actually states, so the
- * comparison is made on screen rather than left to the reader. A bare "24%"
- * means nothing without the 28% it is being measured against.
- */
-function renderDtiCheck(container, frontEnd, backEnd, caption) {
-  container.textContent = '';
-
-  if (caption) {
-    const note = document.createElement('p');
-    note.className = 'dti-caption';
-    note.textContent = caption;
-    container.appendChild(note);
-  }
-
-  const rows = [
-    { label: 'Housing', value: frontEnd, limit: DTI_FRONT_END },
-    { label: 'With your debts', value: backEnd, limit: DTI_BACK_END }
-  ];
-
-  for (const row of rows) {
-    const within = row.value <= row.limit + 0.0005;
-
-    const line = document.createElement('div');
-    line.className = 'dti-row';
-
-    const label = document.createElement('span');
-    label.className = 'dti-label';
-    label.textContent = row.label;
-
-    const figures = document.createElement('span');
-    figures.className = 'dti-figures';
-    const actual = document.createElement('strong');
-    actual.textContent = pct(row.value);
-    figures.append(actual, ` of gross · rule allows ${pct(row.limit)}`);
-
-    const mark = document.createElement('span');
-    mark.className = `dti-mark ${within ? 'is-ok' : 'is-over'}`;
-    mark.textContent = within ? '\u2713' : '\u2715';
-    mark.setAttribute('role', 'img');
-    mark.setAttribute('aria-label', within ? 'within the rule' : 'over the rule');
-
-    line.append(label, figures, mark);
-    container.appendChild(line);
-  }
-}
-
-/** The hero comparison: approved vs. affordable, both direct-labelled. */
-function renderCompare(result) {
-  const lender = result.approval.price;
-  const rule = result.rule28.price;
-  const openbook = result.price;
-  const max = Math.max(lender, rule, openbook, 1);
-
-  $('lenderBar').style.width = `${(lender / max) * 100}%`;
-  $('ruleBar').style.width = `${(rule / max) * 100}%`;
-  $('openbookBar').style.width = `${(openbook / max) * 100}%`;
-  $('lenderPrice').textContent = money(lender);
-  $('rulePrice').textContent = money(rule);
-  $('openbookPrice').textContent = money(openbook);
-
-  $('ruleNote').textContent = `${money(result.rule28.housingBudget)}/mo — 28% of your ${
-    money(result.grossMonthly)} gross monthly income, which is what the rule states.`;
-
-  $('lenderNote').textContent = `A ${money(result.approval.payment.total)}/mo payment — ${
-    pct(result.approvalShareOfTakeHome)} of take-home pay.`;
-  $('openbookNote').textContent = `A ${money(result.payment.total)}/mo payment — ${
-    pct(result.estimateShareOfTakeHome)} of take-home pay.`;
-
-  // The lender's rows are the rule being broken, not applied — said out loud,
-  // because two crosses under a heading that names a rule read like a failure
-  // on our part rather than the lender's.
-  renderDtiCheck(
-    $('lenderDti'), result.approvalFrontEnd, result.approvalBackEnd,
-    "A lender doesn't apply the 28/36 rule. Here's how far past it this goes:"
-  );
-  renderDtiCheck(
-    $('openbookDti'), result.estimateFrontEnd, result.estimateBackEnd,
-    result.cappedByRule
-      ? 'Held at the rule\'s limit — your paycheck would have allowed more:'
-      : 'Set by what your paycheck leaves, and capped at the rule either way:'
-  );
-
-  const gap = lender - openbook;
-  const chip = $('deltaChip');
-  if (gap > 1000) {
-    chip.textContent = `${money(gap)} of "approved" you probably shouldn't spend`;
-    chip.hidden = false;
-  } else if (gap < -1000) {
-    chip.textContent = `${money(-gap)} more than a lender would approve`;
-    chip.hidden = false;
-  } else {
-    chip.textContent = 'Both answers land in the same place';
-    chip.hidden = false;
-  }
-
-  const stateName = (STATE_DATA[state.stateCode] || {}).name || '';
-  $('compareContext').textContent = `${money(state.salary)} salary, ${
-    FILING_LABELS[state.filing].toLowerCase()}, in ${stateName}.`;
-  $('compareSource').textContent = isExampleData
-    ? 'Example numbers — change them below.'
-    : 'Your numbers, live.';
-}
-
 /* ---------------------------------------------------------------------------
  * Ledger
  * ------------------------------------------------------------------------- */
@@ -962,8 +857,6 @@ function paint({ animate = false } = {}) {
     flag.hidden = true;
   }
 
-  renderCompare(result);
-
   // --- totals on the input side ---
   $('savingsTotal').textContent = money(result.savingsTotalMonthly);
   $('debtsTotal').textContent = money(result.debtsMonthly);
@@ -999,7 +892,6 @@ function paint({ animate = false } = {}) {
 
 /** Something changed: recompute, autosave if we're already saving. */
 function touched() {
-  isExampleData = false;
   paint();
   scheduleSave();
 }
@@ -1196,8 +1088,7 @@ function renderViews() {
     loadBtn.setAttribute('aria-label', `Load the view ${view.name}`);
     loadBtn.addEventListener('click', () => {
       applyState(view.state, { message: `Loaded the view "${view.name}". Saving over it won't change anything else you've stored.` });
-      isExampleData = false;
-      persist();
+        persist();
       $('viewName').value = view.name;
       toast(`Loaded "${view.name}"`);
     });
@@ -1304,7 +1195,6 @@ $('btnLoadCode').addEventListener('click', () => {
     input.value = '';
     $('loadPanel').hidden = true;
     $('btnLoadToggle').setAttribute('aria-expanded', 'false');
-    isExampleData = false;
     persist();
     toast('Loaded');
   } catch (e) {
@@ -1314,7 +1204,6 @@ $('btnLoadCode').addEventListener('click', () => {
 
 $('btnReset').addEventListener('click', () => {
   applyState(createEmptyState(), { message: 'Cleared the example numbers. Everything is yours to fill in.' });
-  isExampleData = false;
   selectTab('tab-income');
 });
 
@@ -1384,7 +1273,6 @@ function boot() {
   if (restored) {
     // An explicit save wins: it outlives the tab, so it is the newer intent.
     state = restored.state;
-    isExampleData = false;
     autosaveEnabled = true;
     applyState(state, { message: 'Restored the numbers you saved here earlier.' });
     setSaveStatus(restored.savedAt);
@@ -1396,7 +1284,6 @@ function boot() {
     // Restored quietly — this is the same tab the numbers were typed into, so a
     // banner announcing it would be telling someone what they already know.
     state = draft;
-    isExampleData = false;
     applyState(state);
     setSaveStatus(null, { draft: true });
     return;

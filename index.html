@@ -92,7 +92,7 @@
 
   <!-- ===================== HERO ===================== -->
   <section class="hero">
-    <div class="shell hero-grid">
+    <div class="shell hero-single">
       <div class="hero-copy">
         <span class="eyebrow">Affordability, not approval</span>
         <h1>Know what you can <em>actually</em> afford.</h1>
@@ -121,59 +121,6 @@
         </ul>
       </div>
 
-      <!-- Live comparison — driven by whatever is in the calculator below. -->
-      <figure class="viz-root compare-card" id="compareCard">
-        <figcaption class="compare-head">
-          <h2>Three very different answers</h2>
-          <p id="compareContext">Same salary. Same debts. Same house hunt.</p>
-        </figcaption>
-
-        <div class="compare-bars">
-          <div class="compare-row is-lender">
-            <div class="compare-label">
-              <span class="swatch swatch-lender" aria-hidden="true"></span>
-              What a lender would approve
-            </div>
-            <div class="compare-track">
-              <div class="compare-fill fill-lender" id="lenderBar"></div>
-            </div>
-            <div class="compare-value" id="lenderPrice">—</div>
-            <p class="compare-note" id="lenderNote">Sized to the debt-to-income limit underwriting actually enforces: 45% of gross counting every debt, with no separate cap on the housing share.</p>
-            <div class="dti-check" id="lenderDti"></div>
-          </div>
-
-          <div class="compare-row is-rule">
-            <div class="compare-label">
-              <span class="swatch swatch-rule" aria-hidden="true"></span>
-              What the 28% rule allows
-            </div>
-            <div class="compare-track">
-              <div class="compare-fill fill-rule" id="ruleBar"></div>
-            </div>
-            <div class="compare-value" id="rulePrice">—</div>
-            <p class="compare-note" id="ruleNote">28% of gross income on housing — the classic guideline.</p>
-          </div>
-
-          <div class="compare-row is-openbook">
-            <div class="compare-label">
-              <span class="swatch swatch-openbook" aria-hidden="true"></span>
-              What your paycheck says
-            </div>
-            <div class="compare-track">
-              <div class="compare-fill fill-openbook" id="openbookBar"></div>
-            </div>
-            <div class="compare-value" id="openbookPrice">—</div>
-            <p class="compare-note" id="openbookNote">What's left after tax, savings, debts and living.</p>
-            <div class="dti-check" id="openbookDti"></div>
-            <p class="compare-footnote">The 28/36 test is measured against <strong>gross</strong> income, so that's what the two rows above use.</p>
-          </div>
-        </div>
-
-        <div class="compare-foot">
-          <span class="delta-chip" id="deltaChip">—</span>
-          <span class="compare-source" id="compareSource">Example numbers — change them below.</span>
-        </div>
-      </figure>
     </div>
   </section>
 
@@ -703,7 +650,7 @@
         </details>
         <details>
           <summary>Your percentages are of take-home. Isn't the 28/36 rule 28%?</summary>
-          <div class="details-body"><p>It is, but it's 28% of <em>gross</em>, and the share Openbook leads with is of take-home pay. Take-home is the smaller number, so the same payment looks like a bigger percentage of it. Three ratios are in play and only two of them are the rule: housing ÷ take-home, housing ÷ gross (what the 28 measures, the "front-end" ratio), and housing plus every other debt ÷ gross (what the 36 measures, the "back-end" ratio). On the example household those are 36%, 24% and 33% — so it clears the rule on both counts, even though the first figure is the one that catches your eye. All three are printed under the bars so you can check the rule yourself rather than take our word for it.</p></div>
+          <div class="details-body"><p>It is, but it's 28% of <em>gross</em>, and the share Openbook leads with is of take-home pay. Take-home is the smaller number, so the same payment looks like a bigger percentage of it. Three ratios are in play and only two of them are the rule: housing ÷ take-home, housing ÷ gross (what the 28 measures, the "front-end" ratio), and housing plus every other debt ÷ gross (what the 36 measures, the "back-end" ratio). On the example household those are 36%, 24% and 33% — so it clears the rule on both counts, even though the first figure is the one that catches your eye. The rules-of-thumb section below prices each rule out against your own numbers, so you can check them rather than take our word for it.</p></div>
         </details>
         <details>
           <summary>Why is your number lower than my pre-approval?</summary>
