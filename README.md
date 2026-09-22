@@ -72,6 +72,10 @@ and under `npm test`.
    Roth contributor a housing budget as though they'd saved nothing. That bug shipped
    once; `tests/calc.test.js` now pins each cell of that table, and pins that the tax
    breakdown's rows still sum to take-home pay for both types.
+
+   The 401(k) control sits in step 2, "Money out", with the rest of the savings — a
+   contribution is money leaving, not money arriving, and the Savings card's monthly
+   total has always counted it.
 2. **Housing budget.** Post-tax savings, debt payments and recurring expenses come off
    take-home pay. What survives is the budget — **capped at 28% of gross**, the most the
    28/36 rule allows on housing, so the recommendation is the stricter of the two tests.
