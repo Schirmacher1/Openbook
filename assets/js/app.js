@@ -1058,18 +1058,27 @@ function renderReadiness(result) {
  * Paint
  * ------------------------------------------------------------------------- */
 
-let countFrame = null;
+// One in-flight animation per element, not one for the whole page. When there
+// was only ever a single animated figure (homePrice) a single shared variable
+// was enough; adding cashTotal turned it into a bug — a plain, non-animated
+// setMoney() call for cashTotal still unconditionally cancelled whatever frame
+// id the variable held, which was homePrice's still-pending first frame. That
+// left homePrice showing the static "$0" from the markup forever, because with
+// animate:true its text is only ever written inside the rAF callback, and the
+// callback that would have written it was the one just cancelled.
+const countFrames = new WeakMap();
 
 /**
  * Write a money figure, optionally counting up to it.
  *
- * Every call cancels any animation already in flight — otherwise a count-up
- * still running would keep writing over a newer figure and leave a stale number
- * on screen.
+ * Cancels any animation already in flight for THIS element — otherwise a
+ * count-up still running would keep writing over a newer figure and leave a
+ * stale number on screen. It must not touch another element's animation.
  */
 function setMoney(element, value, animate = false) {
-  cancelAnimationFrame(countFrame);
-  countFrame = null;
+  const running = countFrames.get(element);
+  if (running) cancelAnimationFrame(running);
+  countFrames.delete(element);
 
   if (!animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     element.textContent = money(value);
@@ -1082,9 +1091,10 @@ function setMoney(element, value, animate = false) {
     const t = Math.min(1, (now - start) / duration);
     const eased = 1 - Math.pow(1 - t, 3);
     element.textContent = money(value * eased);
-    countFrame = t < 1 ? requestAnimationFrame(step) : null;
+    if (t < 1) countFrames.set(element, requestAnimationFrame(step));
+    else countFrames.delete(element);
   };
-  countFrame = requestAnimationFrame(step);
+  countFrames.set(element, requestAnimationFrame(step));
 }
 
 function paint({ animate = false } = {}) {
