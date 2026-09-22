@@ -14,8 +14,9 @@ import { compareLedgers, COMPARE_ROWS, COMPARE_LIMIT } from '../assets/js/compar
 import { compute } from '../assets/js/calc.js';
 import { createDefaultState, hydrate, serialize } from '../assets/js/state.js';
 
-const near = (actual, expected, tolerance = 1) =>
-  assert.ok(Math.abs(actual - expected) <= tolerance, `expected ~${expected}, got ${actual}`);
+const near = (actual, expected, tolerance = 1, what = '') =>
+  assert.ok(Math.abs(actual - expected) <= tolerance,
+    `${what ? what + ': ' : ''}expected ~${expected}, got ${actual}`);
 
 const row = (table, key) => table.rows.find((r) => r.key === key);
 
@@ -178,4 +179,122 @@ test('a view saved before the comparison existed still compares', () => {
   ]);
   assert.equal(table.columns[1].isCurrent, true);
   for (const r of table.rows) near(r.diff, 0, 0.01);
+});
+
+/* --------------------------------------------------------------------------
+ * Opening a row
+ *
+ * A total that differs is the start of the question. "Debts: $730 against
+ * $280" invites "which debt?", and the answer has to line the same item up
+ * across views that were saved at different times.
+ * ------------------------------------------------------------------------ */
+
+const child = (table, key, label) =>
+  row(table, key).children.find((c) => c.label === label);
+
+test('only the rows with parts open, and they have parts', () => {
+  const table = compareLedgers([entry('A'), entry('B')]);
+  const opens = table.rows.filter((r) => r.opens).map((r) => r.key);
+  assert.deepEqual(opens, ['tax', 'payroll', 'savings', 'debts', 'expenses', 'housing']);
+  for (const r of table.rows) {
+    if (r.opens) assert.ok(r.children.length > 0, `${r.key} opens onto nothing`);
+    else assert.deepEqual(r.children, [], `${r.key} should have no parts`);
+  }
+});
+
+test('every openable row adds up to its own parts, column by column', () => {
+  const table = compareLedgers([
+    entry('Base'),
+    entry('Roth, bigger', (s) => { s.salary = 250000; s.k401 = { pct: 18, mode: 'pct', type: 'roth' }; })
+  ]);
+  for (const r of table.rows.filter((x) => x.opens)) {
+    r.values.forEach((total, i) => {
+      const sum = r.children.reduce((acc, c) => acc + (c.values[i] ?? 0), 0);
+      near(sum, total, 0.02, `${r.key} column ${i}`);
+    });
+  }
+});
+
+test('an excluded line shows as zero with a note, not as missing', () => {
+  const table = compareLedgers([
+    entry('As things are'),
+    entry('Car paid off', (s) => {
+      s.debtItems = s.debtItems.map((item, i) => (i === 0 ? { ...item, excluded: true } : item));
+    })
+  ]);
+  const car = child(table, 'debts', 'Car loan');
+  assert.ok(car, 'the car loan should still be listed');
+  assert.ok(car.values[0] > 0);
+  assert.equal(car.values[1], 0);
+  assert.equal(car.notes[1], 'excluded');
+  near(car.diff, -car.values[0], 0.01);
+});
+
+test('a line only one view has reads as missing, not as zero', () => {
+  const withExtra = entry('With a boat', (s) => {
+    s.debtItems = [...s.debtItems, { id: 'boat', label: 'Boat loan', value: 310, mode: 'dollar' }];
+  });
+  const table = compareLedgers([entry('Without'), withExtra]);
+  const boat = child(table, 'debts', 'Boat loan');
+  assert.equal(boat.values[0], null, 'the view without it has no such line');
+  assert.equal(boat.values[1], 310);
+  near(boat.diff, 310, 0.01);
+});
+
+test('the same line matches across views even with different stored ids', () => {
+  // One view typed it, the other arrived in a share code — same debt to a reader.
+  const a = entry('Typed');
+  const b = entry('Pasted', (s) => {
+    s.debtItems = s.debtItems.map((item) => ({ ...item, id: `other_${item.id}` }));
+  });
+  const table = compareLedgers([a, b]);
+  const labels = table.rows.find((r) => r.key === 'debts').children.map((c) => c.label);
+  assert.deepEqual(labels, a.state.debtItems.map((i) => i.label), 'no duplicated rows');
+});
+
+test('one view using a label twice keeps two lines', () => {
+  const twice = entry('Two of them', (s) => {
+    s.debtItems = [
+      { id: 'd1', label: 'New debt', value: 100, mode: 'dollar' },
+      { id: 'd2', label: 'New debt', value: 250, mode: 'dollar' }
+    ];
+  });
+  const table = compareLedgers([twice, entry('Plain')]);
+  const rows = row(table, 'debts').children.filter((c) => c.label === 'New debt');
+  assert.equal(rows.length, 2);
+  assert.deepEqual(rows.map((c) => c.values[0]), [100, 250]);
+});
+
+test('a derived part that is zero in every view is left out', () => {
+  // Nobody here pays HOA dues, and "no HOA anywhere" is not a difference.
+  const table = compareLedgers([entry('A'), entry('B')]);
+  assert.equal(child(table, 'housing', 'HOA dues'), undefined);
+
+  const withHoa = entry('With dues', (s) => { s.hoa = 220; });
+  const table2 = compareLedgers([entry('A'), withHoa]);
+  const hoa = child(table2, 'housing', 'HOA dues');
+  assert.equal(hoa.values[0], 0);
+  near(hoa.values[1], 220, 0.01);
+});
+
+test('a line the person typed stays even when it is zero everywhere', () => {
+  // "Credit cards (minimum): $0" is in their list because they put it there.
+  const table = compareLedgers([entry('A'), entry('B')]);
+  const cards = child(table, 'debts', 'Credit cards (minimum)');
+  assert.ok(cards, 'a zero line the person entered is still their line');
+  assert.deepEqual(cards.values, [0, 0]);
+});
+
+test('the 401(k) type shows as a note, per column', () => {
+  const table = compareLedgers([
+    entry('Traditional'),
+    entry('Roth', (s) => { s.k401 = { pct: 8, mode: 'pct', type: 'roth' }; })
+  ]);
+  const k401 = child(table, 'payroll', '401(k)');
+  assert.deepEqual(k401.notes, ['traditional', 'Roth']);
+});
+
+test('parts carry no difference when the table has no difference column', () => {
+  const table = compareLedgers([entry('A'), entry('B'), entry('C')]);
+  for (const r of table.rows) for (const c of r.children) assert.equal(c.diff, null);
 });

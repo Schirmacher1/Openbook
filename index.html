@@ -243,7 +243,10 @@
           line moved, and by how much.
         -->
         <div class="drawer-block cmp" id="comparePanel" hidden>
-          <p class="drawer-title" id="compareTitle">Compare their ledgers</p>
+          <div class="cmp-head">
+            <p class="drawer-title" id="compareTitle">Compare their ledgers</p>
+            <button type="button" class="btn btn-ghost btn-sm" id="btnCompareExpand" aria-expanded="false" hidden>Expand all</button>
+          </div>
           <p class="hint" id="compareHint"></p>
           <label class="cmp-current" id="cmpCurrentWrap" hidden>
             <input type="checkbox" id="cmpCurrent" />
@@ -757,7 +760,7 @@
         </details>
         <details>
           <summary>Can I save more than one scenario?</summary>
-          <div class="details-body"><p>Yes — "Saved views" keeps a named library of them. Save the numbers as they are now, change something, save that under another name, and switch between them in a click. The list shows the price each view works out to, and ticking two or more puts their ledgers side by side, row for row, so you can see <em>which</em> line moved rather than just that the answer changed — a scenario that buys less house because the 401(k) went up reads very differently from one that buys less because a car loan came back. With exactly two ticked you also get a difference column. Like everything else here they're stored on your device only, and "Delete saved data" removes them after telling you which ones it's about to delete.</p></div>
+          <div class="details-body"><p>Yes — "Saved views" keeps a named library of them. Save the numbers as they are now, change something, save that under another name, and switch between them in a click. The list shows the price each view works out to, and ticking two or more puts their ledgers side by side, row for row, so you can see <em>which</em> line moved rather than just that the answer changed. Any row with parts inside it opens — tap Debts and you get each debt, one line per scenario, so "$730 against $280" becomes "the car loan, ticked off" — a scenario that buys less house because the 401(k) went up reads very differently from one that buys less because a car loan came back. With exactly two ticked you also get a difference column. Like everything else here they're stored on your device only, and "Delete saved data" removes them after telling you which ones it's about to delete.</p></div>
         </details>
         <details>
           <summary>Can I share my numbers with a partner?</summary>

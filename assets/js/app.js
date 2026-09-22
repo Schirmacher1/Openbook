@@ -1209,6 +1209,21 @@ function compareEntries(views) {
   return entries;
 }
 
+/** Which openable rows are showing their parts. Outlives a redraw. */
+const compareOpen = new Set();
+
+/** Keep the expand-all control saying what it would actually do. */
+function syncExpandAll(openable) {
+  const button = $('btnCompareExpand');
+  const keys = openable || compareRowKeys;
+  if (!keys.length) return;
+  const allOpen = keys.every((key) => compareOpen.has(key));
+  button.textContent = allOpen ? 'Collapse all' : 'Expand all';
+  button.setAttribute('aria-expanded', String(allOpen));
+}
+
+let compareRowKeys = [];
+
 function renderComparison(views) {
   const panel = $('comparePanel');
   const offerCurrent = currentIsOfferable();
@@ -1229,6 +1244,7 @@ function renderComparison(views) {
 
   if (entries.length < 2) {
     hint.textContent = `Tick two or more of the views above — up to ${COMPARE_LIMIT} — and their ledgers appear here side by side.`;
+    $('btnCompareExpand').hidden = true;
     return;
   }
 
@@ -1287,13 +1303,46 @@ function renderComparison(views) {
   el.appendChild(head);
 
   const body = document.createElement('tbody');
+
+  /** A difference cell, blank-looking when there isn't one worth printing. */
+  const diffCell = (diff) => {
+    const td = document.createElement('td');
+    td.className = 'cmp-diff';
+    td.textContent = Math.abs(diff) < 1
+      ? '\u2014'
+      : `${diff > 0 ? '+' : '\u2212'}${money(Math.abs(diff))}`;
+    return td;
+  };
+
   for (const row of table.rows) {
     const tr = document.createElement('tr');
     tr.className = `cmp-row is-${row.group}`;
 
     const label = document.createElement('th');
     label.scope = 'row';
-    label.textContent = row.label;
+
+    // A row with parts is a disclosure: the label becomes the control, the
+    // same way a ledger row does.
+    const childRows = [];
+    if (row.opens) {
+      const open = compareOpen.has(row.key);
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'cmp-toggle';
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.innerHTML = '<span class="chev" aria-hidden="true">\u25BE</span>';
+      toggle.append(row.label);
+      toggle.addEventListener('click', () => {
+        const nowOpen = !compareOpen.has(row.key);
+        if (nowOpen) compareOpen.add(row.key); else compareOpen.delete(row.key);
+        toggle.setAttribute('aria-expanded', String(nowOpen));
+        for (const child of childRows) child.hidden = !nowOpen;
+        syncExpandAll();
+      });
+      label.appendChild(toggle);
+    } else {
+      label.textContent = row.label;
+    }
     tr.appendChild(label);
 
     row.values.forEach((value, i) => {
@@ -1306,18 +1355,66 @@ function renderComparison(views) {
       tr.appendChild(td);
     });
 
-    if (table.diffable) {
-      const td = document.createElement('td');
-      td.className = 'cmp-diff';
-      td.textContent = Math.abs(row.diff) < 1
-        ? '\u2014'
-        : `${row.diff > 0 ? '+' : '\u2212'}${money(Math.abs(row.diff))}`;
-      tr.appendChild(td);
-    }
+    if (table.diffable) tr.appendChild(diffCell(row.diff));
     body.appendChild(tr);
+
+    for (const part of row.children) {
+      const childTr = document.createElement('tr');
+      childTr.className = `cmp-row cmp-child is-${row.group}`;
+      childTr.hidden = !compareOpen.has(row.key);
+
+      const childLabel = document.createElement('th');
+      childLabel.scope = 'row';
+      childLabel.className = 'cmp-child-label';
+      childLabel.textContent = part.label;
+      childTr.appendChild(childLabel);
+
+      // A note repeated in every column is just the row's description; one that
+      // differs — "excluded" against nothing, Roth against traditional — is the
+      // difference itself, so only those are printed.
+      const varies = part.notes.some((note) => note !== part.notes[0]);
+
+      part.values.forEach((value, i) => {
+        const td = document.createElement('td');
+        if (value === null) {
+          // Not in this scenario at all, which is not the same as zero.
+          td.textContent = '\u2014';
+          td.classList.add('is-absent');
+        } else {
+          td.textContent = row.sign < 0 ? moneyNeg(value) : money(value);
+        }
+        if (table.columns[i].isCurrent) td.classList.add('is-current');
+        if (part.notes[i] && varies) {
+          const note = document.createElement('span');
+          note.className = 'cmp-note';
+          note.textContent = part.notes[i];
+          td.appendChild(note);
+        }
+        childTr.appendChild(td);
+      });
+
+      if (table.diffable) childTr.appendChild(diffCell(part.diff));
+      body.appendChild(childTr);
+      childRows.push(childTr);
+    }
   }
   el.appendChild(body);
   host.appendChild(el);
+
+  // One control for the lot, because opening six rows one at a time to read
+  // the whole ledger is six clicks of ceremony.
+  const openable = table.rows.filter((r) => r.opens).map((r) => r.key);
+  const expandAll = $('btnCompareExpand');
+  expandAll.hidden = openable.length === 0;
+  expandAll.onclick = () => {
+    const allOpen = openable.every((key) => compareOpen.has(key));
+    for (const key of openable) {
+      if (allOpen) compareOpen.delete(key); else compareOpen.add(key);
+    }
+    renderComparison(views);
+  };
+  compareRowKeys = openable;
+  syncExpandAll(openable);
 }
 
 /** Swap a view's name for an input, in place. Enter keeps it, Escape doesn't. */

@@ -352,6 +352,36 @@ top and nothing alike underneath. The tests pin one case where two views produce
 price for a reason invisible in the price — both held to 28% of gross — and the difference
 shows up in unallocated income instead.
 
+**Every row with parts inside it opens.** A differing total is the start of the question,
+not the answer: "Debts: $730 against $280" invites "which debt?". Opening the row answers
+it, one line per line item, and `Expand all` opens the lot. Which rows open, and what is
+inside them:
+
+| Row | Inside |
+|---|---|
+| Tax | federal, state, Social Security & Medicare |
+| 401(k) & pre-tax deductions | the 401(k), then each pre-tax row |
+| Savings, Debts, Other recurring expenses | each line you entered |
+| Housing payment | principal & interest, property tax, insurance, PMI, HOA |
+
+Lining those up across views takes three decisions:
+
+- **Typed lines match on their label, not their stored id.** Two views can hold the same
+  "Car loan" under different ids — one typed, one pasted from a share code — and to a
+  reader they are plainly the same debt. A label used twice inside one view stays two
+  rows. Derived parts (tax, the payment) match on a fixed key instead.
+- **Missing and zero are different answers.** A view with no such line reads `—`; a line
+  that is there but ticked off reads `$0` with an `excluded` note. That note is the
+  comparison people come for: "the car loan, ticked off".
+- **A derived part that is zero in every column is dropped** — no HOA anywhere is not a
+  difference — but a line *someone typed* stays even at zero, because they put it there.
+
+A per-column note (`excluded`, `Roth`, `12% of take-home`) prints only when the columns
+disagree about it; repeated in every column it is just the row's description.
+
+`tests/compare.test.js` pins that every openable row equals the sum of its own parts, in
+every column.
+
 Details:
 
 - **A difference column appears only with exactly two views.** With three or more it would
