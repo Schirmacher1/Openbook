@@ -196,10 +196,25 @@ else's advice.
 
 ## Saving and sharing
 
-The calculator toolbar has three buttons — **Save**, **Share**, **Start over** — each
-opening one drawer, only one of which can be open at a time. Six flat buttons wrapped into
-ragged rows on a phone and gave every action the same weight; grouping them by intention
-fits one row and lets each action carry a sentence saying what it does.
+The calculator toolbar is one **Manage** button opening a menu of six actions, each with a
+line saying what it does. Items ending in an ellipsis (`Saved views…`, `Paste a code…`)
+open a panel below; the rest act immediately and close the menu.
+
+It replaced a row of buttons for a specific reason worth remembering: a row of toggles
+needs a visible active state, and the one it had was a pale hover tint that read as
+nothing happening at all. A menu has no such state to get wrong — it is open or it isn't,
+and the chevron says which.
+
+The menu is anchored to the **toolbar card**, not to the trigger. The trigger moves: it
+shares a row with the status text on a wide screen and wraps below it on a narrow one.
+Anchoring to it and chasing that with a breakpoint clipped the menu off the viewport at
+the widths in between — verified clipping at 480px and 559px before the fix, and fitting
+at 320/360/390/480/559/560/700/1024/1440 after. The card is always inside the viewport,
+so anchoring there cannot clip.
+
+Keyboard: `ArrowDown` from the trigger opens it and focuses the first item, arrows and
+`Home`/`End` move between items, `Escape` closes and returns focus to the trigger, `Tab`
+closes it, and a pointer press anywhere outside dismisses it.
 
 Persistence itself has three tiers, on purpose.
 
@@ -207,7 +222,7 @@ Persistence itself has three tiers, on purpose.
 survives a refresh, the back button and a restored tab, and the browser destroys it when
 the tab closes. It exists so a stray reload doesn't cost you twenty minutes of typing.
 
-**"Remember them when I come back"** (under Save) writes to `localStorage` and outlives the tab. It is deliberately
+**"Remember these numbers"** (in the Manage menu) writes to `localStorage` and outlives the tab. It is deliberately
 something you ask for rather than the default: the page knows your salary, your debts and
 what you have put by, and leaving that on a library or office machine for whoever sits
 down next would undo the promise the rest of the site makes. Once you've saved once,
@@ -215,7 +230,7 @@ changes autosave.
 
 On load an explicit save wins over a draft — it outlived a tab, so it's the newer intent —
 and is announced with a banner. A draft is restored quietly, since it's the same tab you
-typed it into. "Delete saved data" (under Start over) clears both, plus the view library.
+typed it into. "Delete saved data" clears both, plus the view library.
 
 Drafts go through `hydrate()` like anything else, so a tampered one is sanitised rather
 than trusted, and every draft call swallows its own failure — a blocked `sessionStorage`
