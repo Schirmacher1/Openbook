@@ -581,6 +581,19 @@ a { color: var(--accent-text); }
 
 .panel-nav { display: flex; justify-content: space-between; gap: 10px; margin-top: 4px; }
 
+/*
+ * Below the width the grid itself goes single-column, the three panels stop
+ * being a one-at-a-time wizard: all three render at once and the page reads
+ * top to bottom, so there's nothing for a "Next" button to do that scrolling
+ * doesn't already do. The tab bar stays, but as a jump nav — app.js switches
+ * it from hide-the-other-panels to scroll-and-highlight once it detects this
+ * same width.
+ */
+@media (max-width: 999px) {
+  .panel[hidden] { display: block; }
+  .panel-nav { display: none; }
+}
+
 /* ---- Cards ---- */
 
 .card {
