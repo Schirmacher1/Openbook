@@ -1796,7 +1796,7 @@ function renderViews() {
  * below; the rest act immediately and close the menu.
  * ------------------------------------------------------------------------- */
 
-const PANELS = ['viewsPanel', 'pastePanel', 'confirmPanel', 'sharePanel'];
+const PANELS = ['viewsPanel', 'pastePanel', 'confirmPanel', 'sharePanel', 'invitePanel'];
 
 /** Show one panel and hide the other, or hide both with no argument. */
 function showPanel(id) {
@@ -1904,6 +1904,52 @@ menuAction('btnViewsOpen', () => {
 menuAction('btnPasteOpen', () => {
   showPanel('pastePanel');
   $('loadCodeInput').focus();
+});
+
+/* ---------------------------------------------------------------------------
+ * Invite by text
+ *
+ * A link, opened in the visitor's own Messages app, to the empty page — never
+ * this device's numbers. The only thing that makes it different from typing a
+ * text by hand is that it fills in the compose box for you; nothing here
+ * touches state, storage, or the network — an sms: link is a navigation, the
+ * same as clicking any other link, and the CSP has nothing to say about it.
+ */
+
+/** The page's own canonical URL, dropping any query or hash so a stray share
+ *  code or view id in the address bar is never forwarded to someone else. */
+function siteUrl() {
+  return `${location.origin}${location.pathname}`;
+}
+
+function defaultInviteBody() {
+  return `I've been using Openbook to figure out what home I can actually afford, `
+    + `not just what a lender would approve. Free, no sign-up: ${siteUrl()}`;
+}
+
+/** Rebuilds the "Open in Messages" link from the current phone number and
+ *  message. Digits, +, spaces, hyphens and parens survive into the sms: URI;
+ *  anything else in a pasted number is dropped rather than mis-encoded. */
+function updateInviteLink() {
+  const phone = $('invitePhone').value.replace(/[^\d+()\-\s]/g, '').trim();
+  const body = $('inviteBody').value;
+  const target = phone ? `sms:${encodeURIComponent(phone)}` : 'sms:';
+  $('btnInviteSend').href = `${target}?body=${encodeURIComponent(body)}`;
+}
+
+menuAction('btnInviteOpen', () => {
+  showPanel('invitePanel');
+  if (!$('inviteBody').value) $('inviteBody').value = defaultInviteBody();
+  updateInviteLink();
+  $('invitePhone').focus();
+});
+
+$('invitePhone').addEventListener('input', updateInviteLink);
+$('inviteBody').addEventListener('input', updateInviteLink);
+$('btnInviteSend').addEventListener('click', () => {
+  // The link itself does the work; this only confirms it fired, since
+  // navigating to an sms: URI gives no other feedback that anything happened.
+  toast('Opening Messages…');
 });
 
 $('btnSaveView').addEventListener('click', doSaveView);
