@@ -24,6 +24,18 @@ export const SS_RATE = 0.062;
 export const MEDICARE_RATE = 0.0145;
 export const ADDL_MEDICARE_RATE = 0.009;
 
+/**
+ * The most an employee can put into a 401(k) themselves in a year — the IRC
+ * §402(g) elective-deferral limit, $24,500 for 2026 (IRS Notice 2025-67).
+ *
+ * It matters to the readiness checks: above roughly $163,000 of salary, 15% of
+ * gross is more than a 401(k) can legally hold, so measuring someone against a
+ * rate they cannot reach in the account would be a warning about the law rather
+ * than about their saving. Catch-up contributions ($8,000 at 50+, $11,250 at
+ * 60-63) are deliberately not modelled: Openbook never asks your age.
+ */
+export const K401_ELECTIVE_LIMIT = 24500;
+
 export const FILING_LABELS = {
   single: 'Single',
   mfj: 'Married filing jointly',

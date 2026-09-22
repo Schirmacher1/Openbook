@@ -536,7 +536,7 @@
           <a class="result-card result-card-link reveal-on-complete" href="#rules" id="rulesSummary">
             <span class="result-eyebrow">Against the published rules</span>
             <span class="rules-score" id="rulesScore">—</span>
-            <span class="result-sub">Ramsey, The Money Guy, conventional underwriting and the federal cost-burden line, run against your numbers →</span>
+            <span class="result-sub" id="rulesSummarySub">Run against your numbers →</span>
           </a>
         </aside>
       </div>
@@ -547,9 +547,23 @@
           <span class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="14" y2="12" /><line x1="4" y1="17" x2="18" y2="17" /></svg></span>
           Where every dollar goes <span class="badge">per month</span>
         </h3>
-        <p class="card-sub">Your take-home pay, allocated across everything above. This is derived live — it isn't separate data to fill in.</p>
+        <p class="card-sub">Every dollar of your gross pay, from the first one: tax, then what your employer holds back, then what you spend. This is derived live — it isn't separate data to fill in.</p>
 
         <div class="ledger-income">
+          <span>Monthly gross pay</span>
+          <span id="ledgerGross">$0</span>
+        </div>
+
+        <!--
+          The two rows above take-home pay are the ones nobody chooses to spend.
+          They used to sit in a separate "Tax breakdown" card below the ledger,
+          which meant a card called "Where every dollar goes" started three
+          thousand dollars in.
+        -->
+        <p class="group-label">Before it reaches you <span class="group-label-note">— open a row to see what's inside</span></p>
+        <div id="ledgerPreRows"></div>
+
+        <div class="ledger-subtotal">
           <span>Monthly take-home pay</span>
           <span id="ledgerIncome">$0</span>
         </div>
@@ -577,25 +591,6 @@
         </div>
         <p class="hint" id="ledgerNetHint"></p>
       </div>
-
-      <!-- ---------- TAX ---------- -->
-      <details class="card details-card reveal-on-complete">
-        <summary>
-          <span class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="7" r="2.2" /><circle cx="17" cy="17" r="2.2" /><line x1="18" y1="6" x2="6" y2="18" /></svg></span>
-          <span class="summary-text">Tax breakdown</span>
-          <span class="summary-meta" id="taxSummaryMeta"></span>
-        </summary>
-        <div class="details-body">
-          <dl class="stat-list">
-            <div class="stat"><dt>Annual gross salary</dt><dd id="taxGross">$0</dd></div>
-            <div class="stat is-negative"><dt>Federal income tax</dt><dd id="taxFed">$0</dd></div>
-            <div class="stat is-negative"><dt>State income tax</dt><dd id="taxState">$0</dd></div>
-            <div class="stat is-negative"><dt>Social Security &amp; Medicare</dt><dd id="taxFica">$0</dd></div>
-            <div class="stat is-negative"><dt>401(k) contributions &amp; pre-tax deductions</dt><dd id="taxPretax">$0</dd></div>
-            <div class="stat is-total"><dt>Annual take-home pay</dt><dd id="taxNet">$0</dd></div>
-          </dl>
-        </div>
-      </details>
 
       <p class="disclaimer">
         State income tax is estimated from each state's published rates or brackets, applied to the same income

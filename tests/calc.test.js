@@ -446,3 +446,57 @@ test('a Roth contribution reduces the housing budget', () => {
     'money going into a Roth cannot also be available for a mortgage');
   near(none.leftover - twelve.leftover, 2000, 0.01);
 });
+
+/* --------------------------------------------------------------------------
+ * The ledger cascade
+ *
+ * "Where every dollar goes" starts at the first dollar, so the ledger runs
+ * gross → tax → payroll deductions → take-home → debits. The first half has to
+ * reconcile exactly, or the card is telling two different stories about the
+ * same paycheck.
+ * ------------------------------------------------------------------------ */
+
+test('gross minus tax minus payroll deductions is take-home pay', () => {
+  for (const type of ['traditional', 'roth']) {
+    const state = createDefaultState();
+    state.salary = 200000;
+    state.k401 = { pct: 12, mode: 'pct', type };
+    const { ledger, paycheck } = compute(state);
+
+    near(ledger.grossMonthly, 200000 / 12, 0.01);
+    near(
+      ledger.grossMonthly - ledger.deductions.tax - ledger.deductions.payroll,
+      paycheck.netMonthly,
+      0.01
+    );
+    near(ledger.netMonthly, paycheck.netMonthly, 0.01);
+    near(ledger.deductionsTotal, ledger.deductions.tax + ledger.deductions.payroll, 0.01);
+  }
+});
+
+test('the tax row is federal, state and FICA only', () => {
+  const state = createDefaultState();
+  const { ledger, paycheck } = compute(state);
+  near(
+    ledger.deductions.tax,
+    (paycheck.federalTax + paycheck.stateTax + paycheck.ficaTax) / 12,
+    0.01
+  );
+});
+
+test('the payroll row carries the whole 401(k), Roth included', () => {
+  const state = createDefaultState();
+  state.salary = 150000;
+  state.k401 = { pct: 10, mode: 'pct', type: 'roth' };
+  const result = compute(state);
+  near(result.ledger.deductions.payroll, result.k401Monthly + result.pretaxMonthly, 0.01);
+  assert.ok(result.ledger.deductions.payroll > 0);
+});
+
+test('take-home minus every debit is the unallocated figure', () => {
+  const state = createDefaultState();
+  const { ledger } = compute(state);
+  const debits = ledger.debits;
+  near(ledger.debitsTotal, debits.savings + debits.debts + debits.expenses + debits.housing, 0.01);
+  near(ledger.netMonthly - ledger.debitsTotal, ledger.unallocated, 0.01);
+});

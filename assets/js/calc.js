@@ -298,6 +298,17 @@ export function compute(state) {
   const debitsTotal = debits.savings + debits.debts + debits.expenses + debits.housing;
   const unallocated = netMonthly - debitsTotal;
 
+  // "Where every dollar goes" has to start at the first dollar. The two rows
+  // above take-home pay are the ones nobody chooses to spend: tax, and the
+  // payroll deductions that never reach the account. By construction
+  // grossMonthly - tax - payroll === netMonthly, so the cascade reconciles
+  // exactly rather than approximately.
+  const deductions = {
+    tax: (paycheck.federalTax + paycheck.stateTax + paycheck.ficaTax) / 12,
+    payroll: k401Monthly + pretaxMonthly
+  };
+  const deductionsTotal = deductions.tax + deductions.payroll;
+
   return {
     gross,
     grossMonthly,
@@ -331,7 +342,11 @@ export function compute(state) {
       // Which half of 28/36 produced the figure — the 36 usually wins.
       boundBy: ruleOfThumbBudget < rule28Budget - 0.01 ? 'back' : 'front'
     },
-    ledger: { usingTestPrice, payment: ledgerPayment, debits, debitsTotal, unallocated },
+    ledger: {
+      usingTestPrice, payment: ledgerPayment,
+      grossMonthly, deductions, deductionsTotal, netMonthly,
+      debits, debitsTotal, unallocated
+    },
     // Both denominators, because they are the whole argument. Take-home is the
     // number a lender never asks about; gross is the one every published rule is
     // written in. Quoting one without naming it invites the reader to measure it

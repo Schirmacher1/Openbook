@@ -55,6 +55,14 @@ and under `npm test`.
 
 ## How the calculation works
 
+The **ledger** ("Where every dollar goes") runs the whole cascade: monthly gross pay, then
+tax, then the payroll deductions that never reach your account, then take-home pay, then
+what you spend it on. `grossMonthly - tax - payroll === netMonthly` by construction, and
+`tests/calc.test.js` pins that identity for both 401(k) types. It used to start at
+take-home, with tax in a separate card below — a card called "where every dollar goes"
+that began three thousand dollars in, and whose neighbour was called "Tax breakdown" while
+listing the 401(k) too. Both problems went away when the cascade became one card.
+
 1. **Take-home pay.** Federal tax from the published marginal brackets and standard
    deduction for the filing status; state tax from each state's own published rate or
    brackets; Social Security to the wage base; Medicare including the additional surtax.
@@ -101,8 +109,7 @@ quotes. Openbook sizes a price around your own budget, not a lender's maximum.
 ## The step gate
 
 The figures stay hidden until all three calculator steps have been opened. Until then the
-results slot holds a checklist with a "next step" button, the ledger and tax breakdown are
-hidden, the rules section shows a short notice instead of its chart, and the phone summary
+results slot holds a checklist with a "next step" button, the ledger is hidden, the rules section shows a short notice instead of its chart, and the phone summary
 bar stays down.
 
 The reason is not ceremony. With the figures visible from the start, the answer becomes the
@@ -219,7 +226,9 @@ Two implementation details that matter:
 Scoring counts the guidance rules only. Openbook's own line isn't a rule, and neither are
 the two ceilings — coming in under a limit you'd have to be reckless to breach isn't an
 achievement. A breached ceiling is reported separately, because it's alarming rather than
-merely worth noting.
+merely worth noting. The score reads "2 of 3 rules met" and its caption is generated from
+the same split, naming the three it scored and the two it didn't: "2 of 3" beside a list of
+four sources reads as an arithmetic mistake.
 
 `readiness()` covers what the sources spend most of their time on: consumer debt, the
 emergency fund, the down payment, the retirement contribution rate (Ramsey's 15% of
@@ -227,6 +236,21 @@ gross, The Money Guy's 25%) and housing as a share of income. The retirement che
 deliberately counts the 401(k) only and says so — Openbook can't see an IRA, a brokerage
 account or an employer match, so anything else would be a guess. The emergency-fund check
 reports `unknown` rather than a failure when the optional balance is blank.
+
+Two of those checks need more than a threshold:
+
+- **Retirement is measured against the account, not just the rate.** The §402(g) elective
+  deferral limit is $24,500 for 2026, so above roughly $163,000 of salary, 15% of gross is
+  more than a 401(k) can legally hold. The target is `min(15% of gross, the limit)`, and
+  when the limit is what binds the check says so and points at an IRA or a taxable account
+  rather than reporting a shortfall nobody can close. The comparison runs on the whole
+  percentage the label prints, so "401(k) at 12% of gross" is never shown failing a 12%
+  target by a quarter of a point.
+- **Housing share follows the gross measure.** Three of the four lines here — The Money
+  Guy's 25%, the 28/36 rule's 28% and HUD's 30% — measure gross pay. Ramsey's 25% measures
+  take-home, which makes it far the strictest; failing the whole check on his line alone
+  marked plans that clear every other published figure. Clearing 25% of gross passes, and
+  the detail names Ramsey as the one still outstanding instead of burying it.
 
 **Attribution.** Openbook is not affiliated with, endorsed by or connected to Ramsey
 Solutions, The Money Guy Show or HUD. Their names appear because their guidance is worth
