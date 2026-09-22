@@ -183,18 +183,38 @@ function renderGate() {
   button.dataset.gotoTab = next.id;
 }
 
+/** Switches tabs and returns the panel that just became visible, so a caller
+ *  that wants to scroll to it has the right element without repeating the
+ *  aria-controls lookup — and a fresh one every time, unlike `#calculator`
+ *  (the section wrapper above the tabs), whose position never changes when
+ *  the panel inside it does. Anchoring "Next" there worked once, then
+ *  computed a zero-distance scroll on every click after: same target,
+ *  already in view, nothing to do — which is what "the button takes me to
+ *  the wrong place" turned out to be.
+ */
 function selectTab(id, { focus = false } = {}) {
+  let panel;
   tabs.forEach((tab) => {
     const isActive = tab.id === id;
     tab.classList.toggle('is-active', isActive);
     tab.setAttribute('aria-selected', String(isActive));
     tab.tabIndex = isActive ? 0 : -1;
-    $(tab.getAttribute('aria-controls')).hidden = !isActive;
+    const tabPanel = $(tab.getAttribute('aria-controls'));
+    tabPanel.hidden = !isActive;
+    if (isActive) panel = tabPanel;
   });
   if (focus) $(id).focus();
 
   visitedSteps.add(id);
   renderGate();
+  return panel;
+}
+
+/** Scroll a newly revealed panel to the top of the viewport, under the sticky
+ *  header — `scroll-padding-top` (openbook.css) already accounts for its
+ *  height, the same way it does for every other in-page jump on the site. */
+function scrollToPanel(panel) {
+  panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 tabs.forEach((tab) => {
@@ -210,14 +230,12 @@ tabs.forEach((tab) => {
 
 document.querySelectorAll('[data-goto-tab]').forEach((button) => {
   button.addEventListener('click', () => {
-    selectTab(button.dataset.gotoTab);
-    $('calculator').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollToPanel(selectTab(button.dataset.gotoTab));
   });
 });
 
 $('gateNext').addEventListener('click', () => {
-  selectTab($('gateNext').dataset.gotoTab);
-  $('calculator').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  scrollToPanel(selectTab($('gateNext').dataset.gotoTab));
 });
 
 /* ---------------------------------------------------------------------------
