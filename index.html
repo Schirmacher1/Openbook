@@ -83,6 +83,7 @@
       <a href="#how">How it works</a>
       <a href="#calculator">Calculator</a>
       <a href="#rules">Rules of thumb</a>
+      <a href="#levers">Levers</a>
       <a href="#faq">FAQ</a>
     </nav>
 
@@ -585,6 +586,23 @@
             <p class="result-sub" id="housingBudgetNote"></p>
           </div>
 
+          <!--
+            The down payment used to be the only cash the page modelled, which
+            quietly implied you can put every dollar you've saved into it. The
+            escrow figures here are this buyer's own tax and insurance, not an
+            average — the calculator already knows both.
+          -->
+          <div class="result-card result-card-soft reveal-on-complete">
+            <p class="result-eyebrow">Cash you'd need at closing</p>
+            <p class="result-figure" id="cashTotal">$0</p>
+            <dl class="stat-list cash-list">
+              <div class="stat"><dt>Down payment</dt><dd id="cashDown">$0</dd></div>
+              <div class="stat"><dt id="cashFeesLabel">Fees</dt><dd id="cashFees">$0</dd></div>
+              <div class="stat"><dt>Escrow &amp; prepaid interest</dt><dd id="cashEscrow">$0</dd></div>
+            </dl>
+            <p class="result-sub" id="cashNote"></p>
+          </div>
+
           <a class="result-card result-card-link reveal-on-complete" href="#rules" id="rulesSummary">
             <span class="result-eyebrow">Against the published rules</span>
             <span class="rules-score" id="rulesScore">—</span>
@@ -712,6 +730,23 @@
         their own words. Summaries lose nuance, so follow a link before you act on one. Nothing here is financial
         advice.
       </p>
+    </div>
+  </section>
+
+  <!-- ===================== LEVERS ===================== -->
+  <section class="section section-levers" id="levers">
+    <div class="shell">
+      <header class="section-head">
+        <span class="eyebrow">What to do about it</span>
+        <h2>Where the leverage is</h2>
+        <p>Not advice — arithmetic. Each line is the same calculation run again with one thing changed, priced in the only unit that settles the argument: dollars of house, and dollars a month.</p>
+      </header>
+
+      <p class="gate-notice show-until-complete">Finish the three steps in the calculator above and the levers worth pulling — with what each one is worth — appear here.</p>
+
+      <ol class="lever-list reveal-on-complete" id="leverList"></ol>
+
+      <p class="disclaimer reveal-on-complete" id="leverNote"></p>
     </div>
   </section>
 

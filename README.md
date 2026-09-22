@@ -43,6 +43,7 @@ assets/js/calc.js       The whole calculation, as pure functions (no DOM, no sto
 assets/js/state.js      Defaults, persistence and share codes
 assets/js/guidance.js   Published rules of thumb and the readiness checks
 assets/js/compare.js    Saved views, side by side, as pure functions
+assets/js/levers.js     What each change would be worth, as pure functions
 assets/js/app.js        The interface: rendering, wiring, charts
 assets/js/theme.js      Pre-paint theme stamp (kept external so CSP can ban inline script)
 assets/css/fonts.css    @font-face rules for the self-hosted typefaces (generated)
@@ -262,6 +263,60 @@ measuring against; the page links to each source, and the disclaimer says summar
 nuance. If you restate any of these rules, re-check them against the source first —
 `tests/guidance.test.js` pins each figure so a refactor can't quietly reword someone
 else's advice.
+
+## Cash at closing
+
+The down payment used to be the only cash the page modelled, which quietly implied that
+someone with $40,000 saved can put $40,000 down. They can't. `cashToClose()` adds:
+
+- **Fees** at 2% of the price (lender, title, appraisal, attorney, recording). The page
+  quotes the 1.5%–3% band around it, because the spread between states is enormous —
+  transfer taxes and title practice are local, and New York averages near $16,800 against
+  Missouri's $2,100 on the same transaction.
+- **Escrow**, computed from *this buyer's* own property tax and insurance rather than an
+  average, because the calculator already knows both: three months of tax and a year of
+  insurance is what a lender typically collects up front.
+- **Prepaid interest** from the closing date to month end, charged on the loan — so an
+  all-cash purchase owes none of it, which `tests/levers.test.js` pins.
+
+On the example household that is $8,778 on top of the deposit: 22% more cash than the
+page used to imply. None of it changes the monthly payment, so none of it changes what you
+can afford month to month — it changes whether you can get to the table at all, which is a
+different question the page had not been asking.
+
+## The levers
+
+`assets/js/levers.js` answers "what should I do about it" by running the same calculation
+again with one thing changed, and pricing the difference in dollars of house and dollars a
+month. It is not an advice engine and it holds to one rule: **it never asserts anything it
+cannot compute from what the person entered.**
+
+The levers are: clearing each debt, reaching the next mortgage-insurance tier, reaching
+20%, moving up a credit tier, and the 15-year trade.
+
+Three things it gets right that a naive version would not:
+
+- **A debt's payment is the lever; its balance is the price.** A lender counts the
+  payment, so a small balance on a large payment is the most leverage in the model —
+  clearing a $450/mo car loan with $3,100 left buys about $38,000 more house. The balance
+  is an optional field on each debt row: without it the page says what the lever is worth
+  but not what pulling it costs, and says so rather than guessing.
+- **A bigger deposit is mostly a transfer, not leverage.** Putting 20% down might show
+  "+$24,297 of house", but $19,193 of that is your own cash becoming equity. Only the
+  remainder — what the freed mortgage insurance lets you borrow — is what the lever is
+  worth, and that is what it's ranked on. Ranking on the headline would put moving your
+  own money above clearing a debt.
+- **When the 28% cap binds, clearing a debt buys no more house at all,** and the line says
+  so instead of showing a triumphant zero.
+
+**On car loans specifically**, the honest framing is the payment, not the rate. Openbook
+never asks what rate you're paying, so it doesn't tell you what clearing the loan saves in
+interest; it notes the published averages (around 11.4% used, 6.4% new, September 2026),
+points out that anything above your mortgage rate costs more than the house would, and
+leaves you to check your own paperwork.
+
+The figures don't add up, and the page says so: each one assumes everything else stays as
+it is, so pulling two levers is not the sum of pulling each.
 
 ## Where the figures come from, and when
 

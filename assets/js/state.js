@@ -149,7 +149,11 @@ function sanitizeItems(raw, { allowPct }) {
       value: num(item.value, mode === 'pct' ? LIMITS.pct : LIMITS.amount),
       // A percentage of take-home isn't defined before tax, so it can't be pre-tax.
       pretax: mode === 'dollar' && item.pretax === true,
-      excluded: item.excluded === true
+      excluded: item.excluded === true,
+      // Optional, and only meaningful on a debt: what's left to pay. It turns
+      // "clearing this buys $38,000 of house" into a decision by saying what
+      // pulling the lever costs.
+      balance: num(item.balance, LIMITS.amount, 0)
     };
   });
 }

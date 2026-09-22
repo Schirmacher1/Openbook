@@ -1168,6 +1168,57 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
 .save-card-actions .btn { flex: 1 1 auto; }
 .save-card .hint { margin-top: 10px; }
 
+/* --- Cash at closing ----------------------------------------------------- */
+
+.cash-list { margin-top: 12px; }
+
+/* --- Levers -------------------------------------------------------------- */
+
+.section-levers { background: var(--surface-2); }
+
+.lever-list { list-style: none; display: grid; gap: 12px; margin-top: 22px; }
+
+.lever {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow-sm);
+  border-left: 3px solid var(--accent-line);
+}
+.lever.is-tradeoff { border-left-color: var(--border); }
+.lever-none { border-left-color: var(--good); color: var(--ink-soft); font-size: 14.5px; }
+
+.lever-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px;
+}
+.lever-title { font-family: var(--font-display); font-size: 17px; font-weight: 600; color: var(--ink); }
+.lever-figure {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 18px; font-weight: 600; color: var(--accent-text); white-space: nowrap;
+}
+.is-tradeoff .lever-figure { color: var(--ink-faint); }
+.lever-unit {
+  font-family: var(--font-ui); font-size: 11px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--ink-faint); margin-left: 6px;
+}
+
+.lever-detail { margin-top: 6px; font-size: 14px; line-height: 1.6; color: var(--ink-soft); }
+.lever-meta {
+  margin-top: 8px; font-family: var(--font-mono); font-size: 12.5px;
+  font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.lever-note { margin-top: 6px; font-size: 12.5px; line-height: 1.55; color: var(--ink-faint); }
+
+/* The optional balance on a debt row. */
+.line-balance {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.line-balance input {
+  width: 92px; padding: 7px 9px; font-size: 13px;
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  text-transform: none; letter-spacing: 0;
+}
+
 /* A breached ceiling, appended to the rules verdict. */
 .verdict-alarm { color: var(--bad); }
 
