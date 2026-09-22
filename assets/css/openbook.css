@@ -650,6 +650,9 @@ select {
 .k401-label { font-size: 15px; font-weight: 700; }
 .k401-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .k401-value { flex: 1 1 120px; min-width: 110px; }
+/* The 401(k) block heads the Savings card; a rule separates it from the line list. */
+.k401-hint { padding-bottom: 14px; border-bottom: 1px solid var(--border-soft); }
+.k401-hint + .group-label { margin-top: 16px; }
 
 /* ---- Line items ---- */
 
