@@ -1320,6 +1320,102 @@ function renderComparison(views) {
   host.appendChild(el);
 }
 
+/** Swap a view's name for an input, in place. Enter keeps it, Escape doesn't. */
+function startRename(view, button) {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'view-name-input';
+  input.value = view.name;
+  input.maxLength = VIEW_LIMITS.name;
+  input.autocomplete = 'off';
+  input.setAttribute('aria-label', `New name for the view ${view.name}`);
+
+  // Enter, Escape and clicking away all land here, and removing the focused
+  // input fires one more blur on the way out, so the first one wins.
+  let settled = false;
+  const finish = (keep) => {
+    if (settled) return;
+    settled = true;
+
+    const next = input.value.trim();
+    if (!keep || !next || next === view.name) { renderViews(); return; }
+
+    // Two views with one name is a trap: saving under that name would then
+    // replace whichever came first.
+    const taken = listViews().some((other) => other.id !== view.id
+      && other.name.toLowerCase() === next.toLowerCase());
+    if (taken) {
+      toast(`There's already a view called "${next}"`, true);
+      renderViews();
+      return;
+    }
+
+    try {
+      renameView(view.id, next);
+      toast(`Renamed to "${next}"`);
+    } catch (e) {
+      toast('A view needs a name', true);
+    }
+    renderViews();
+  };
+
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+    else if (event.key === 'Escape') { event.preventDefault(); finish(false); }
+  });
+  input.addEventListener('blur', () => finish(true));
+
+  button.replaceWith(input);
+  input.focus();
+  input.select();
+}
+
+/**
+ * Deleting is irreversible, so it asks first — in the row rather than in a
+ * window.confirm(), which a sandboxed frame refuses to show. A refused confirm
+ * reads as false, which is how Delete came to do nothing at all.
+ */
+function askToDelete(view, actions) {
+  const restore = Array.from(actions.children);
+
+  const putBack = () => {
+    actions.textContent = '';
+    for (const child of restore) actions.appendChild(child);
+    restore[restore.length - 1]?.focus();
+  };
+
+  actions.textContent = '';
+
+  const ask = document.createElement('span');
+  ask.className = 'view-confirm';
+  ask.textContent = 'Delete for good?';
+
+  const yes = document.createElement('button');
+  yes.type = 'button';
+  yes.className = 'btn btn-sm btn-danger-solid';
+  yes.textContent = 'Delete';
+  yes.setAttribute('aria-label', `Yes, delete the view ${view.name}`);
+  yes.addEventListener('click', () => {
+    deleteView(view.id);
+    compareSelection.delete(view.id);
+    renderViews();
+    toast(`Deleted "${view.name}"`);
+  });
+
+  const no = document.createElement('button');
+  no.type = 'button';
+  no.className = 'btn btn-ghost btn-sm';
+  no.textContent = 'Keep it';
+  no.addEventListener('click', putBack);
+
+  actions.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') { event.preventDefault(); putBack(); }
+  });
+
+  actions.append(ask, yes, no);
+  yes.focus();
+}
+
 /**
  * The library, rebuilt from storage each time. Each row carries the price that
  * view produces, so the list doubles as a comparison of the scenarios rather
@@ -1358,9 +1454,18 @@ function renderViews() {
 
     const main = document.createElement('div');
     main.className = 'view-main';
-    const name = document.createElement('p');
+
+    // The name is the rename control. A separate Rename button used to open a
+    // window.prompt(), which a sandboxed frame — the preview, an embed, some
+    // in-app browsers — simply refuses to show, so the button did nothing at
+    // all. Editing in place needs no dialog and is one click shorter.
+    const name = document.createElement('button');
+    name.type = 'button';
     name.className = 'view-name';
     name.textContent = view.name;
+    name.title = 'Click to rename';
+    name.setAttribute('aria-label', `Rename the view ${view.name}`);
+    name.addEventListener('click', () => startRename(view, name));
     const meta = document.createElement('p');
     meta.className = 'view-meta';
     meta.textContent = `${money(result.price)} · ${money(result.payment.total)}/mo · saved ${dayMonth(view.savedAt)}`;
@@ -1400,36 +1505,14 @@ function renderViews() {
       toast(`Loaded "${view.name}"`);
     });
 
-    const renameBtn = document.createElement('button');
-    renameBtn.type = 'button';
-    renameBtn.className = 'btn btn-ghost btn-sm';
-    renameBtn.textContent = 'Rename';
-    renameBtn.setAttribute('aria-label', `Rename the view ${view.name}`);
-    renameBtn.addEventListener('click', () => {
-      const next = window.prompt('Rename this view:', view.name);
-      if (next === null) return;
-      try {
-        renameView(view.id, next);
-        renderViews();
-        toast('Renamed');
-      } catch (e) {
-        toast('A view needs a name', true);
-      }
-    });
-
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.className = 'btn btn-ghost btn-sm btn-danger';
     removeBtn.textContent = 'Delete';
     removeBtn.setAttribute('aria-label', `Delete the view ${view.name}`);
-    removeBtn.addEventListener('click', () => {
-      if (!window.confirm(`Delete the view "${view.name}"? This can't be undone.`)) return;
-      deleteView(view.id);
-      renderViews();
-      toast('View deleted');
-    });
+    removeBtn.addEventListener('click', () => askToDelete(view, actions));
 
-    actions.append(loadBtn, renameBtn, removeBtn);
+    actions.append(loadBtn, removeBtn);
     row.append(main, actions);
     list.appendChild(row);
   }
@@ -1444,7 +1527,7 @@ function renderViews() {
  * below; the rest act immediately and close the menu.
  * ------------------------------------------------------------------------- */
 
-const PANELS = ['viewsPanel', 'pastePanel'];
+const PANELS = ['viewsPanel', 'pastePanel', 'confirmPanel', 'sharePanel'];
 
 /** Show one panel and hide the other, or hide both with no argument. */
 function showPanel(id) {
@@ -1574,7 +1657,14 @@ menuAction('btnShare', async () => {
     await navigator.clipboard.writeText(code);
     toast('Code copied — send it, and they paste it into "Paste a code"');
   } catch (e) {
-    window.prompt('Copy this code and send it to whoever you are sharing with:', code);
+    // Clipboard access is refused in plenty of ordinary places — an iframe, an
+    // insecure origin, a browser that wants a gesture it didn't see. Show the
+    // code instead of a prompt() a sandboxed frame would swallow.
+    const out = $('shareCodeOut');
+    out.value = code;
+    showPanel('sharePanel');
+    out.focus();
+    out.select();
   }
 });
 
@@ -1601,28 +1691,64 @@ menuAction('btnReset', () => {
   selectTab('tab-income');
 });
 
+/**
+ * Ask before something irreversible, in the page rather than in a dialog the
+ * browser may refuse to show. `onYes` runs only on a real click.
+ */
+function askToConfirm({ title, text, confirmLabel, onYes }) {
+  $('confirmTitle').textContent = title;
+  $('confirmText').textContent = text;
+  const yes = $('btnConfirmYes');
+  yes.textContent = confirmLabel;
+
+  // One listener per asking, so an old question can't answer a new one.
+  const cleanup = () => {
+    yes.removeEventListener('click', accept);
+    $('btnConfirmNo').removeEventListener('click', decline);
+  };
+  const accept = () => { cleanup(); showPanel(null); onYes(); };
+  const decline = () => { cleanup(); showPanel(null); };
+
+  yes.addEventListener('click', accept);
+  $('btnConfirmNo').addEventListener('click', decline);
+
+  showPanel('confirmPanel');
+  yes.focus();
+}
+
+function doClear() {
+  try { clear(); } catch (e) { /* nothing saved */ }
+  clearDraft();
+  autosaveEnabled = false;
+  setSaveStatus(null);
+  banner('');
+  compareSelection.clear();
+  renderViews();
+}
+
 menuAction('btnClear', () => {
   // Named views are deliberate work, so clearing them is never a side effect of
   // a single click — it is named and confirmed.
   let views = [];
   try { views = listViews(); } catch (e) { views = []; }
 
-  if (views.length) {
-    const ok = window.confirm(
-      `This also deletes ${views.length} saved view${views.length === 1 ? '' : 's'} `
-      + `(${views.map((v) => v.name).join(', ')}). Clear everything?`
-    );
-    if (!ok) return;
-    clearViews();
+  if (!views.length) {
+    doClear();
+    toast('Saved data cleared from this device');
+    return;
   }
 
-  try { clear(); } catch (e) { /* nothing saved */ }
-  clearDraft();
-  autosaveEnabled = false;
-  setSaveStatus(null);
-  banner('');
-  renderViews();
-  toast(views.length ? 'Saved data and views cleared from this device' : 'Saved data cleared from this device');
+  askToConfirm({
+    title: 'Delete everything saved on this device?',
+    text: `This also deletes ${views.length} saved view${views.length === 1 ? '' : 's'} `
+      + `(${views.map((v) => v.name).join(', ')}). The numbers on the page stay as they are.`,
+    confirmLabel: 'Delete it all',
+    onYes: () => {
+      clearViews();
+      doClear();
+      toast('Saved data and views cleared from this device');
+    }
+  });
 });
 
 /* ---------------------------------------------------------------------------

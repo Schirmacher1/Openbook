@@ -253,6 +253,31 @@
         </div>
       </div>
 
+      <!--
+        Two panels that exist because window.confirm() and window.prompt() are
+        blocked outright in a sandboxed frame — the preview, an embed, some
+        in-app browsers. A blocked confirm reads as "no", so anything behind one
+        silently did nothing.
+      -->
+      <div class="drawer" id="confirmPanel" hidden>
+        <div class="drawer-block">
+          <p class="drawer-title" id="confirmTitle">Are you sure?</p>
+          <p class="hint" id="confirmText"></p>
+          <div class="confirm-actions">
+            <button type="button" class="btn btn-sm btn-danger-solid" id="btnConfirmYes">Delete</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btnConfirmNo">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="drawer" id="sharePanel" hidden>
+        <div class="drawer-block">
+          <label class="drawer-title" for="shareCodeOut">Your share code</label>
+          <p class="hint">Copying it automatically didn't work in this browser. Select the code and copy it by hand — it's the whole of your numbers, so send it however you'd send anything else private.</p>
+          <textarea id="shareCodeOut" class="share-out" rows="3" readonly spellcheck="false"></textarea>
+        </div>
+      </div>
+
       <div class="drawer" id="pastePanel" hidden>
         <div class="drawer-block">
           <label class="drawer-title" for="loadCodeInput">Paste the code you were sent</label>

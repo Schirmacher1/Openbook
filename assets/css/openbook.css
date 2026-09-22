@@ -1179,7 +1179,42 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
 .view-row:last-child { border-bottom: none; }
 
 .view-main { min-width: 0; flex: 1 1 200px; }
-.view-name { font-size: 15px; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+/* The name is the rename control: it has to look like the name, and behave
+   like something you can click. */
+.view-name {
+  display: block; width: 100%; text-align: left;
+  font: inherit; font-size: 15px; font-weight: 700; color: var(--ink);
+  overflow-wrap: anywhere; background: none; border: 0; cursor: text;
+  padding: 2px 6px; margin: -2px -6px; border-radius: 7px;
+}
+.view-name::after {
+  content: 'Rename'; margin-left: 8px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint);
+  opacity: .75; white-space: nowrap;
+}
+.view-name:hover { background: var(--surface-2); }
+.view-name:hover::after, .view-name:focus-visible::after { opacity: 1; color: var(--accent-text); }
+.view-name:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+
+.view-name-input {
+  width: 100%; font-size: 15px; font-weight: 700; padding: 4px 8px;
+}
+
+/* Asking in the row, because a browser dialog may never appear. */
+.view-confirm {
+  font-size: 13.5px; font-weight: 700; color: var(--bad); align-self: center; margin-right: 2px;
+}
+.btn-danger-solid {
+  --btn-bg: var(--bad); --btn-fg: #FFFFFF; --btn-bd: var(--bad);
+}
+.btn-danger-solid:hover { filter: brightness(1.08); }
+
+.confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+.share-out {
+  width: 100%; margin-top: 10px; font-family: var(--font-mono); font-size: 12.5px;
+  line-height: 1.5; resize: vertical; overflow-wrap: anywhere;
+}
 .view-meta {
   margin-top: 2px; font-size: 12.5px; color: var(--ink-faint);
   font-variant-numeric: tabular-nums;
