@@ -206,7 +206,7 @@ else's advice.
 
 ## Saving and sharing
 
-There are two tiers, on purpose.
+There are three tiers, on purpose.
 
 **The in-tab draft** is written automatically to `sessionStorage` as you type. It
 survives a refresh, the back button and a restored tab, and the browser destroys it when
@@ -225,6 +225,18 @@ typed it into. "Clear saved" clears both.
 Drafts go through `hydrate()` like anything else, so a tampered one is sanitised rather
 than trusted, and every draft call swallows its own failure — a blocked `sessionStorage`
 must never be the reason something breaks.
+
+**Named views** are a library of scenarios — "as things are", "if we clear the car loan",
+"the Denver version" — each a complete set of numbers, saved under a name and reloadable
+in one click. Each row in the list shows the price and payment that view produces, so the
+library doubles as a comparison of the scenarios rather than just a list of names.
+
+Saving under a name already in use replaces that view (case-insensitively), so saving
+"Plan A" twice updates Plan A instead of leaving two of them. The library caps at 24 and
+drops the oldest to make room rather than refusing a save. Views read back through
+`hydrate()` like anything else, so a corrupt store reads as empty and a tampered entry is
+sanitised. "Clear saved" removes them too, but never silently: it names the views it is
+about to delete and asks first.
 
 **"Copy share code"** packs the state into a base64 string you can send by text or email;
 the recipient pastes it into "Paste a code". A link can't carry the data reliably — the
