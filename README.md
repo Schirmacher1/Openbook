@@ -319,6 +319,25 @@ the recipient pastes it into "Paste a code". A link can't carry the data reliabl
 page is often opened inside another app's viewer, which doesn't hand the script the URL —
 so the code is the transport.
 
+### No browser dialogs, anywhere
+
+Nothing on the page depends on `window.confirm()`, `window.prompt()` or `alert()`. A
+sandboxed frame — the artifact preview, an embed, some in-app browsers — refuses to show
+them, and a refused `confirm()` reads as `false`, so Delete silently did nothing and
+Rename silently kept the old name. Both now happen in the page:
+
+- **Renaming is the name.** Clicking it swaps in an input; Enter keeps the change, Escape
+  drops it, clicking away keeps it. A name another view already uses is refused with a
+  message rather than quietly creating two views that "Save view" would then confuse. The
+  separate Rename button is gone.
+- **Deleting asks in the row** — "Delete for good?" with Delete and Keep it — and Escape
+  backs out. Clearing all saved data asks in a panel that names the views it will remove.
+- **The share code falls back to a panel,** not a prompt, when the clipboard is refused
+  (an iframe, an insecure origin, a browser wanting a gesture it didn't see).
+
+`tests/` can't cover this — it's DOM behaviour — so the browser check asserts it instead:
+the Playwright run fails if a dialog is opened at all.
+
 ### Comparing views
 
 Ticking two or more saved views (up to four) puts their ledgers side by side in the same
