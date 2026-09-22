@@ -241,10 +241,21 @@
         <div class="toolbar-actions">
           <button type="button" class="btn btn-primary btn-sm" id="btnSave">Save to this device</button>
           <button type="button" class="btn btn-ghost btn-sm" id="btnShare">Copy share code</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btnViewsToggle" aria-expanded="false" aria-controls="viewsPanel">Saved views</button>
           <button type="button" class="btn btn-ghost btn-sm" id="btnLoadToggle" aria-expanded="false" aria-controls="loadPanel">Paste a code</button>
           <button type="button" class="btn btn-ghost btn-sm" id="btnReset">Start empty</button>
           <button type="button" class="btn btn-ghost btn-sm btn-danger" id="btnClear">Clear saved</button>
         </div>
+      </div>
+
+      <div class="load-panel views-panel" id="viewsPanel" hidden>
+        <label for="viewName">Save these numbers as a view you can come back to</label>
+        <div class="load-row">
+          <input type="text" id="viewName" placeholder="e.g. Current plan, or Without the car loan" maxlength="60" autocomplete="off" />
+          <button type="button" class="btn btn-primary btn-sm" id="btnSaveView">Save view</button>
+        </div>
+        <p class="hint" id="viewsHint"></p>
+        <div id="viewsList"></div>
       </div>
 
       <div class="load-panel" id="loadPanel" hidden>
@@ -713,6 +724,10 @@
         <details>
           <summary>Where do the rate, PMI and insurance figures come from?</summary>
           <div class="details-body"><p>They're broad national estimates by credit tier, loan term and state — the kind of figures that get you in the right neighbourhood. PMI steps up at the usual loan-to-value cutoffs and scales with your credit tier. If you have a real quote, switch insurance to "I know my rate" and enter it.</p></div>
+        </details>
+        <details>
+          <summary>Can I save more than one scenario?</summary>
+          <div class="details-body"><p>Yes — "Saved views" keeps a named library of them. Save the numbers as they are now, change something, save that under another name, and switch between them in a click. The list shows the price each view works out to, so you can compare "as things are" against "if we clear the car loan" without re-typing anything. Like everything else here they're stored on your device only, and "Clear saved" removes them after telling you which ones it's about to delete.</p></div>
         </details>
         <details>
           <summary>Can I share my numbers with a partner?</summary>

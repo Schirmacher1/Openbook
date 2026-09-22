@@ -251,6 +251,115 @@ export function clearDraft() {
 }
 
 /* ---------------------------------------------------------------------------
+ * Named views
+ *
+ * A library of saved scenarios — "current plan", "if we clear the car loan",
+ * "the Denver version" — each a complete set of numbers you can come back to.
+ *
+ * Same posture as the single save: localStorage, this device only, never sent
+ * anywhere, and only ever written when you ask. Read back through hydrate() like
+ * any other stored input, so a corrupted or tampered entry is sanitised rather
+ * than trusted.
+ * ------------------------------------------------------------------------- */
+
+export const VIEWS_KEY = 'openbook.views.v1';
+export const VIEW_LIMITS = { name: 60, count: 24 };
+
+let viewSeq = 0;
+const viewId = () => `v${++viewSeq}_${Date.now().toString(36)}`;
+
+/** Newest first. Never throws: a broken store reads as an empty library. */
+export function listViews() {
+  let raw;
+  try {
+    raw = localStorage.getItem(VIEWS_KEY);
+  } catch (e) {
+    return [];
+  }
+  if (!raw) return [];
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+
+  const entries = Array.isArray(parsed?.views) ? parsed.views : [];
+  return entries
+    .slice(0, VIEW_LIMITS.count)
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry, i) => ({
+      id: typeof entry.id === 'string' ? entry.id.slice(0, 64) : `stored${i}`,
+      name: (typeof entry.name === 'string' ? entry.name : '').slice(0, VIEW_LIMITS.name) || 'Untitled view',
+      savedAt: Number.isFinite(entry.savedAt) ? entry.savedAt : 0,
+      state: hydrate(entry.data)
+    }))
+    .sort((a, b) => b.savedAt - a.savedAt);
+}
+
+function writeViews(views) {
+  const payload = {
+    views: views.slice(0, VIEW_LIMITS.count).map((view) => ({
+      id: view.id,
+      name: view.name,
+      savedAt: view.savedAt,
+      data: serialize(view.state)
+    }))
+  };
+  localStorage.setItem(VIEWS_KEY, JSON.stringify(payload));
+}
+
+/**
+ * Save under a name, replacing any view already using it — saving "Plan A"
+ * twice should update Plan A, not leave two of them.
+ */
+export function saveView(name, state) {
+  const clean = String(name ?? '').trim().slice(0, VIEW_LIMITS.name);
+  if (!clean) throw new Error('A view needs a name');
+
+  const views = listViews();
+  const existing = views.find((view) => view.name.toLowerCase() === clean.toLowerCase());
+  const entry = {
+    id: existing ? existing.id : viewId(),
+    name: clean,
+    savedAt: Date.now(),
+    state: hydrate(serialize(state))
+  };
+
+  const rest = views.filter((view) => view.id !== entry.id);
+  if (rest.length + 1 > VIEW_LIMITS.count) {
+    // Drop the oldest to make room rather than refusing the save.
+    rest.length = VIEW_LIMITS.count - 1;
+  }
+  writeViews([entry, ...rest]);
+  return { view: entry, replaced: Boolean(existing) };
+}
+
+export function renameView(id, name) {
+  const clean = String(name ?? '').trim().slice(0, VIEW_LIMITS.name);
+  if (!clean) throw new Error('A view needs a name');
+  const views = listViews();
+  const target = views.find((view) => view.id === id);
+  if (!target) return false;
+  target.name = clean;
+  writeViews(views);
+  return true;
+}
+
+export function deleteView(id) {
+  writeViews(listViews().filter((view) => view.id !== id));
+}
+
+export function clearViews() {
+  try {
+    localStorage.removeItem(VIEWS_KEY);
+  } catch (e) {
+    /* nothing stored */
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * Share codes
  *
  * A link can't carry the numbers reliably — this page is often opened inside

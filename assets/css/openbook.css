@@ -1166,3 +1166,31 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
 /* The published rule, sitting between the lender's ceiling and the paycheck. */
 .swatch-rule { background: var(--brass-fill); }
 .fill-rule { background: var(--brass-fill); }
+
+/* ==========================================================================
+   Saved views
+   ========================================================================== */
+
+.views-panel #viewsList:not(:empty) {
+  margin-top: 14px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.view-row {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 10px 14px; padding: 12px 0; border-bottom: 1px solid var(--border-soft);
+}
+.view-row:last-child { border-bottom: none; }
+
+.view-main { min-width: 0; flex: 1 1 200px; }
+.view-name { font-size: 15px; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.view-meta {
+  margin-top: 2px; font-size: 12.5px; color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+.view-actions { display: flex; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+@media (max-width: 480px) {
+  .view-actions { width: 100%; }
+  .view-actions .btn { flex: 1 1 auto; }
+}

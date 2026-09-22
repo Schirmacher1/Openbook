@@ -241,3 +241,129 @@ test('a draft never throws, whatever the browser does', async () => {
     assert.equal(loadDraft(), null, 'unparseable draft is ignored, not fatal');
   });
 });
+
+/* ---------------------------------------------------------------------------
+ * Named views
+ * ------------------------------------------------------------------------- */
+
+async function withLocalStorage(storage, fn) {
+  const original = globalThis.localStorage;
+  Object.defineProperty(globalThis, 'localStorage', { value: storage, configurable: true, writable: true });
+  try { return await fn(); }
+  finally {
+    if (original === undefined) delete globalThis.localStorage;
+    else Object.defineProperty(globalThis, 'localStorage', { value: original, configurable: true, writable: true });
+  }
+}
+
+test('views round-trip, keeping each scenario independent', async () => {
+  const mod = await import('../assets/js/state.js');
+  await withLocalStorage(fakeStorage(), () => {
+    assert.deepEqual(mod.listViews(), []);
+
+    const a = { ...createDefaultState(), salary: 95000 };
+    const b = { ...createDefaultState(), salary: 145000, debtItems: [] };
+    mod.saveView('As things are', a);
+    mod.saveView('After the raise', b);
+
+    const views = mod.listViews();
+    assert.equal(views.length, 2);
+
+    const byName = Object.fromEntries(views.map((v) => [v.name, v.state]));
+    assert.equal(byName['As things are'].salary, 95000);
+    assert.equal(byName['After the raise'].salary, 145000);
+    assert.equal(byName['As things are'].debtItems.length, a.debtItems.length);
+    assert.equal(byName['After the raise'].debtItems.length, 0);
+  });
+});
+
+test('saving under an existing name replaces rather than duplicates', async () => {
+  const mod = await import('../assets/js/state.js');
+  await withLocalStorage(fakeStorage(), () => {
+    mod.saveView('Plan A', { ...createDefaultState(), salary: 90000 });
+    const again = mod.saveView('plan a', { ...createDefaultState(), salary: 120000 });
+
+    assert.equal(again.replaced, true, 'matching is case-insensitive');
+    const views = mod.listViews();
+    assert.equal(views.length, 1);
+    assert.equal(views[0].salary, undefined);
+    assert.equal(views[0].state.salary, 120000);
+  });
+});
+
+test('a view needs a name', async () => {
+  const mod = await import('../assets/js/state.js');
+  await withLocalStorage(fakeStorage(), () => {
+    assert.throws(() => mod.saveView('   ', createDefaultState()), /needs a name/i);
+    assert.throws(() => mod.saveView(null, createDefaultState()), /needs a name/i);
+    assert.equal(mod.listViews().length, 0);
+  });
+});
+
+test('rename and delete act on the right view', async () => {
+  const mod = await import('../assets/js/state.js');
+  await withLocalStorage(fakeStorage(), () => {
+    mod.saveView('One', createDefaultState());
+    mod.saveView('Two', createDefaultState());
+
+    const two = mod.listViews().find((v) => v.name === 'Two');
+    assert.equal(mod.renameView(two.id, 'Two renamed'), true);
+    assert.ok(mod.listViews().some((v) => v.name === 'Two renamed'));
+    assert.ok(mod.listViews().some((v) => v.name === 'One'));
+
+    mod.deleteView(two.id);
+    assert.deepEqual(mod.listViews().map((v) => v.name), ['One']);
+
+    assert.equal(mod.renameView('no-such-id', 'X'), false);
+  });
+});
+
+test('the library is capped, dropping the oldest to make room', async () => {
+  const mod = await import('../assets/js/state.js');
+  await withLocalStorage(fakeStorage(), () => {
+    for (let i = 0; i < mod.VIEW_LIMITS.count + 6; i++) {
+      mod.saveView(`View ${i}`, { ...createDefaultState(), salary: 50000 + i });
+    }
+    const views = mod.listViews();
+    assert.equal(views.length, mod.VIEW_LIMITS.count);
+    // The most recent save must have survived.
+    assert.ok(views.some((v) => v.name === `View ${mod.VIEW_LIMITS.count + 5}`));
+  });
+});
+
+test('a tampered or corrupt view store is sanitised, never trusted', async () => {
+  const mod = await import('../assets/js/state.js');
+
+  const corrupt = fakeStorage();
+  corrupt.setItem(mod.VIEWS_KEY, 'not json at all');
+  await withLocalStorage(corrupt, () => {
+    assert.deepEqual(mod.listViews(), [], 'unparseable store reads as empty');
+  });
+
+  const tampered = fakeStorage();
+  tampered.setItem(mod.VIEWS_KEY, JSON.stringify({
+    views: [
+      { name: 'X'.repeat(500), data: { salary: Infinity, evilKey: 'payload' } },
+      { name: '', data: null },
+      'not an object'
+    ]
+  }));
+  await withLocalStorage(tampered, () => {
+    const views = mod.listViews();
+    assert.equal(views.length, 2, 'the non-object entry is dropped');
+    assert.equal(views[0].name.length, mod.VIEW_LIMITS.name);
+    assert.equal(views[0].state.evilKey, undefined);
+    assert.ok(Number.isFinite(views[0].state.salary));
+    assert.equal(views[1].name, 'Untitled view');
+    for (const view of views) assertNoBadNumbers(view.state, 'tampered view');
+  });
+});
+
+test('views never throw when storage is blocked', async () => {
+  const mod = await import('../assets/js/state.js');
+  await withLocalStorage(fakeStorage({ failing: true }), () => {
+    assert.deepEqual(mod.listViews(), []);
+    assert.doesNotThrow(() => mod.clearViews());
+    assert.throws(() => mod.saveView('X', createDefaultState()), /storage blocked/);
+  });
+});

@@ -15,6 +15,7 @@ import { evaluateBenchmarks, scoreBenchmarks, readiness } from './guidance.js';
 import {
   createDefaultState, createEmptyState, newItem, hydrate,
   save, load, clear, saveDraft, loadDraft, clearDraft,
+  listViews, saveView, renameView, deleteView, clearViews, VIEW_LIMITS,
   encodeShareCode, decodeShareCode
 } from './state.js';
 
@@ -1140,6 +1141,138 @@ $('addExpense').addEventListener('click', () => {
 });
 
 /* ---------------------------------------------------------------------------
+ * Saved views
+ * ------------------------------------------------------------------------- */
+
+const dayMonth = (ts) => ts
+  ? new Date(ts).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+  : 'unknown date';
+
+/**
+ * The library, rebuilt from storage each time. Each row carries the price that
+ * view produces, so the list doubles as a comparison of the scenarios rather
+ * than just a list of names.
+ */
+function renderViews() {
+  const list = $('viewsList');
+  const hint = $('viewsHint');
+  list.textContent = '';
+
+  let views = [];
+  try {
+    views = listViews();
+  } catch (e) {
+    hint.textContent = "Views can't be read in this browser (private window, or storage is blocked).";
+    return;
+  }
+
+  hint.textContent = views.length
+    ? `${views.length} of ${VIEW_LIMITS.count} saved on this device. Saving under a name you've used before replaces it.`
+    : 'Nothing saved yet. Views live on this device only, like everything else here.';
+
+  for (const view of views) {
+    const result = compute(view.state);
+
+    const row = document.createElement('div');
+    row.className = 'view-row';
+
+    const main = document.createElement('div');
+    main.className = 'view-main';
+    const name = document.createElement('p');
+    name.className = 'view-name';
+    name.textContent = view.name;
+    const meta = document.createElement('p');
+    meta.className = 'view-meta';
+    meta.textContent = `${money(result.price)} · ${money(result.payment.total)}/mo · saved ${dayMonth(view.savedAt)}`;
+    main.append(name, meta);
+
+    const actions = document.createElement('div');
+    actions.className = 'view-actions';
+
+    const loadBtn = document.createElement('button');
+    loadBtn.type = 'button';
+    loadBtn.className = 'btn btn-primary btn-sm';
+    loadBtn.textContent = 'Load';
+    loadBtn.setAttribute('aria-label', `Load the view ${view.name}`);
+    loadBtn.addEventListener('click', () => {
+      applyState(view.state, { message: `Loaded the view "${view.name}". Saving over it won't change anything else you've stored.` });
+      isExampleData = false;
+      persist();
+      $('viewName').value = view.name;
+      toast(`Loaded "${view.name}"`);
+    });
+
+    const renameBtn = document.createElement('button');
+    renameBtn.type = 'button';
+    renameBtn.className = 'btn btn-ghost btn-sm';
+    renameBtn.textContent = 'Rename';
+    renameBtn.setAttribute('aria-label', `Rename the view ${view.name}`);
+    renameBtn.addEventListener('click', () => {
+      const next = window.prompt('Rename this view:', view.name);
+      if (next === null) return;
+      try {
+        renameView(view.id, next);
+        renderViews();
+        toast('Renamed');
+      } catch (e) {
+        toast('A view needs a name', true);
+      }
+    });
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn btn-ghost btn-sm btn-danger';
+    removeBtn.textContent = 'Delete';
+    removeBtn.setAttribute('aria-label', `Delete the view ${view.name}`);
+    removeBtn.addEventListener('click', () => {
+      if (!window.confirm(`Delete the view "${view.name}"? This can't be undone.`)) return;
+      deleteView(view.id);
+      renderViews();
+      toast('View deleted');
+    });
+
+    actions.append(loadBtn, renameBtn, removeBtn);
+    row.append(main, actions);
+    list.appendChild(row);
+  }
+}
+
+$('btnViewsToggle').addEventListener('click', () => {
+  const panel = $('viewsPanel');
+  panel.hidden = !panel.hidden;
+  $('btnViewsToggle').setAttribute('aria-expanded', String(!panel.hidden));
+  if (!panel.hidden) {
+    renderViews();
+    $('viewName').focus();
+  }
+});
+
+function doSaveView() {
+  const input = $('viewName');
+  const name = input.value.trim();
+  if (!name) {
+    toast('Give the view a name first', true);
+    input.focus();
+    return;
+  }
+  try {
+    const { replaced } = saveView(name, state);
+    renderViews();
+    toast(replaced ? `Updated "${name}"` : `Saved "${name}"`);
+  } catch (e) {
+    toast("Couldn't save in this browser (private window, or storage is blocked)", true);
+  }
+}
+
+$('btnSaveView').addEventListener('click', doSaveView);
+$('viewName').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    doSaveView();
+  }
+});
+
+/* ---------------------------------------------------------------------------
  * Toolbar
  * ------------------------------------------------------------------------- */
 
@@ -1186,12 +1319,27 @@ $('btnReset').addEventListener('click', () => {
 });
 
 $('btnClear').addEventListener('click', () => {
+  // Named views are deliberate work, so clearing them is never a side effect of
+  // a single click — it is named and confirmed.
+  let views = [];
+  try { views = listViews(); } catch (e) { views = []; }
+
+  if (views.length) {
+    const ok = window.confirm(
+      `This also deletes ${views.length} saved view${views.length === 1 ? '' : 's'} `
+      + `(${views.map((v) => v.name).join(', ')}). Clear everything?`
+    );
+    if (!ok) return;
+    clearViews();
+  }
+
   try { clear(); } catch (e) { /* nothing saved */ }
   clearDraft();
   autosaveEnabled = false;
   setSaveStatus(null);
   banner('');
-  toast('Saved data cleared from this device');
+  renderViews();
+  toast(views.length ? 'Saved data and views cleared from this device' : 'Saved data cleared from this device');
 });
 
 /* ---------------------------------------------------------------------------
