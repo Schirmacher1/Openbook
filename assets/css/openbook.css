@@ -154,7 +154,23 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header-h) + 16px); }
+/*
+ * overflow-anchor: none turns off the browser's own scroll anchoring, which
+ * otherwise fights every "Next" button on this page. The step gate reveals a
+ * large amount of previously-hidden content (the ledger, the rules section,
+ * the levers) the instant the third step is visited; Chromium's scroll
+ * anchoring reacts to that layout change by jumping the viewport on its own,
+ * to whatever it guesses will "look the least jarring" — landing deep in the
+ * newly-revealed rules or ledger section, nowhere near the new panel — and
+ * only then does the smooth scrollIntoView() below start correcting it,
+ * visibly drifting back to the right spot over about a second. Anyone who
+ * glances at their phone in that window sees the wrong, mid-drift position
+ * and reasonably assumes that's where the button took them. Scroll anchoring
+ * exists for content loading asynchronously above what you're reading — not
+ * for a synchronous, single-page reveal this site already points the scroll
+ * at itself — so it's switched off outright rather than patched per element.
+ */
+html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header-h) + 16px); overflow-anchor: none; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 body {

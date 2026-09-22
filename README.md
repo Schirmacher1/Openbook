@@ -137,6 +137,36 @@ Details that matter:
 Each panel footer also carries a "Step N of 3" label, so the sequence is legible without
 having to infer it from the tab badges.
 
+### The scroll that fought back
+
+Completing the third step does two things in the same tick: switches to the "Home & loan"
+panel, and flips the gate — which means every `.reveal-on-complete` card in the results
+column (the ledger, the rules section, the levers, all of it) goes from `display:none` to
+visible at once. That combination broke the "Next" button's own scroll, twice, reported
+each time with a screenshot of a completely different section than the one just clicked
+into — the ledger once, the rules section another time.
+
+The cause was not what it looked like. In order, what it wasn't:
+
+- **Not the scroll target.** `window.scrollTo` was instrumented directly; the call always
+  already carried the right pixel the instant it fired.
+- **Not scroll anchoring.** `overflow-anchor: none` is set on `html` and changed nothing.
+- **Not `scrollIntoView`'s own re-tracking**, and not fixed by computing a fixed pixel
+  target instead of handing it an element — same detour either way.
+- **Not a missing `preventScroll`.** Redirecting focus to the new panel before hiding the
+  old one (so the browser has nothing to "rescue" focus onto) is in `selectTab()` and is
+  worth keeping for accessibility, but on its own it didn't stop the detour.
+
+What it was: some scroll *native to the browser*, outside every JS call this page makes,
+that still honours the CSS `scroll-behavior: smooth` on `html` — confirmed by the one
+change that actually worked, forcing `document.documentElement.style.scrollBehavior =
+'auto'` for the moment of the jump. A `behavior` option passed to an individual
+`scrollTo`/`scrollIntoView` call doesn't reach it; only the element's own CSS property
+does. `scrollToPanel()` (`assets/js/app.js`) now toggles that property off immediately
+before the jump and restores it a couple of frames later, so every other in-page scroll on
+the site — a header nav link, "See the full ledger" — keeps the smooth default this one
+moment can't tolerate.
+
 ## Rules of thumb
 
 `assets/js/guidance.js` runs the best-known published guidance against the same numbers
