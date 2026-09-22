@@ -864,7 +864,9 @@ function paint({ animate = false } = {}) {
   $('taxFed').textContent = moneyNeg(result.paycheck.federalTax);
   $('taxState').textContent = moneyNeg(result.paycheck.stateTax);
   $('taxFica').textContent = moneyNeg(result.paycheck.ficaTax);
-  $('taxPretax').textContent = moneyNeg((result.isTraditional ? result.k401Annual : 0) + result.pretaxMonthly * 12);
+  // The whole 401(k) belongs on this line whichever type it is, because all of it
+  // left the paycheck — otherwise the column doesn't add up to take-home pay.
+  $('taxPretax').textContent = moneyNeg(result.k401Annual + result.pretaxMonthly * 12);
   $('taxNet').textContent = money(result.paycheck.netAnnual);
   $('taxSummaryMeta').textContent = `${pct(result.paycheck.effectiveRate, 1)} effective rate`;
 

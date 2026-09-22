@@ -367,3 +367,82 @@ test('compute: the paycheck figure can never exceed the 28% rule figure', () => 
       'the cap should keep the recommendation at or under the rule');
   }
 });
+
+/* ---------------------------------------------------------------------------
+ * Roth vs traditional
+ *
+ * The distinction is easy to get wrong in one specific way: a Roth contribution
+ * does not reduce taxable income, but it very much does reduce take-home pay.
+ * Treating "doesn't lower tax" as "doesn't leave the paycheck" hands a Roth
+ * contributor a housing budget as though they saved nothing.
+ * ------------------------------------------------------------------------- */
+
+const withK401 = (type, pct, salary = 200000) => {
+  const state = createDefaultState();
+  state.salary = salary;
+  state.savingsItems = [];
+  state.debtItems = [];
+  state.expenseItems = [];
+  state.k401 = { pct, mode: 'pct', type };
+  return compute(state);
+};
+
+test('a percentage contribution is that share of gross pay', () => {
+  const result = withK401('roth', 12);
+  near(result.k401Annual, 24000);
+  near(result.k401Monthly, 2000);
+  // Same figure whichever type it is — only its tax treatment differs.
+  near(withK401('traditional', 12).k401Annual, 24000);
+});
+
+test('a Roth contribution leaves the paycheck', () => {
+  const none = withK401('roth', 0);
+  const twelve = withK401('roth', 12);
+  near(none.paycheck.netMonthly - twelve.paycheck.netMonthly, 2000, 0.01);
+  assert.ok(twelve.paycheck.netMonthly < none.paycheck.netMonthly,
+    'contributing must reduce take-home pay, Roth included');
+});
+
+test('a Roth contribution does not reduce taxable income', () => {
+  const none = withK401('roth', 0);
+  const twelve = withK401('roth', 12);
+  near(twelve.paycheck.taxableIncome, none.paycheck.taxableIncome, 0.01);
+  near(twelve.paycheck.federalTax, none.paycheck.federalTax, 0.01);
+});
+
+test('Roth costs more take-home than traditional, by exactly the tax on it', () => {
+  const trad = withK401('traditional', 12);
+  const roth = withK401('roth', 12);
+
+  const extraTax = (roth.paycheck.federalTax + roth.paycheck.stateTax)
+    - (trad.paycheck.federalTax + trad.paycheck.stateTax);
+  near(trad.paycheck.netAnnual - roth.paycheck.netAnnual, extraTax, 0.01);
+  assert.ok(extraTax > 0, 'the Roth contributor pays tax on the contribution');
+});
+
+test('neither type of contribution changes FICA', () => {
+  const none = withK401('roth', 0);
+  near(withK401('roth', 12).paycheck.ficaTax, none.paycheck.ficaTax, 0.01);
+  near(withK401('traditional', 12).paycheck.ficaTax, none.paycheck.ficaTax, 0.01);
+});
+
+test('the tax breakdown reconciles to take-home pay for both types', () => {
+  for (const type of ['traditional', 'roth']) {
+    const r = withK401(type, 12);
+    // The rows the interface prints, in order, must sum to the total it prints.
+    const shown = r.gross
+      - r.paycheck.federalTax
+      - r.paycheck.stateTax
+      - r.paycheck.ficaTax
+      - (r.k401Annual + r.pretaxMonthly * 12);
+    near(shown, r.paycheck.netAnnual, 0.01);
+  }
+});
+
+test('a Roth contribution reduces the housing budget', () => {
+  const none = withK401('roth', 0);
+  const twelve = withK401('roth', 12);
+  assert.ok(twelve.leftover < none.leftover,
+    'money going into a Roth cannot also be available for a mortgage');
+  near(none.leftover - twelve.leftover, 2000, 0.01);
+});

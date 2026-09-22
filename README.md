@@ -57,9 +57,21 @@ and under `npm test`.
 
 1. **Take-home pay.** Federal tax from the published marginal brackets and standard
    deduction for the filing status; state tax from each state's own published rate or
-   brackets; Social Security to the wage base; Medicare including the additional
-   surtax. Traditional 401(k) and pre-tax payroll items reduce taxable income —
-   pre-tax items reduce FICA wages too, a 401(k) doesn't.
+   brackets; Social Security to the wage base; Medicare including the additional surtax.
+
+   The 401(k) types are passed to `computePaycheck` separately, because they do two
+   different things and conflating them is a real hazard:
+
+   | | lowers taxable income | leaves the paycheck | lowers FICA wages |
+   |---|---|---|---|
+   | Traditional 401(k) | yes | yes | no |
+   | Roth 401(k) | **no** | **yes** | no |
+   | Pre-tax payroll items | yes | yes | yes |
+
+   Reading "Roth doesn't lower your tax" as "Roth doesn't leave your paycheck" hands a
+   Roth contributor a housing budget as though they'd saved nothing. That bug shipped
+   once; `tests/calc.test.js` now pins each cell of that table, and pins that the tax
+   breakdown's rows still sum to take-home pay for both types.
 2. **Housing budget.** Post-tax savings, debt payments and recurring expenses come off
    take-home pay. What survives is the budget — **capped at 28% of gross**, the most the
    28/36 rule allows on housing, so the recommendation is the stricter of the two tests.
