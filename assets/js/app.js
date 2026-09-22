@@ -18,7 +18,7 @@ import {
   createDefaultState, createEmptyState, newItem, hydrate,
   save, load, clear, saveDraft, loadDraft, clearDraft,
   listViews, saveView, renameView, deleteView, clearViews, VIEW_LIMITS,
-  encodeShareCode, decodeShareCode
+  encodeShareCode, encodeShareBundle, decodeShareCode
 } from './state.js';
 
 const $ = (id) => document.getElementById(id);
@@ -1745,6 +1745,13 @@ function renderViews() {
       toast(`Loaded "${view.name}"`);
     });
 
+    const shareBtn = document.createElement('button');
+    shareBtn.type = 'button';
+    shareBtn.className = 'btn btn-ghost btn-sm';
+    shareBtn.textContent = 'Share';
+    shareBtn.setAttribute('aria-label', `Share the view ${view.name}`);
+    shareBtn.addEventListener('click', () => shareOneView(view));
+
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.className = 'btn btn-ghost btn-sm btn-danger';
@@ -1752,10 +1759,14 @@ function renderViews() {
     removeBtn.setAttribute('aria-label', `Delete the view ${view.name}`);
     removeBtn.addEventListener('click', () => askToDelete(view, actions));
 
-    actions.append(loadBtn, removeBtn);
+    actions.append(loadBtn, shareBtn, removeBtn);
     row.append(main, actions);
     list.appendChild(row);
   }
+
+  const shareAll = $('btnShareAllViews');
+  shareAll.hidden = views.length === 0;
+  shareAll.onclick = () => shareAllViews(views);
 
   renderComparison(views);
 }
@@ -1905,21 +1916,59 @@ function renderSaveCardSub() {
 }
 
 /** Copy the share code, or show it when the clipboard is refused. */
-async function doShare() {
-  const code = encodeShareCode(state);
+/**
+ * Copy a share code to the clipboard, or fall back to a panel with the code
+ * selected when the clipboard is refused — an iframe, an insecure origin, a
+ * browser wanting a gesture it didn't see. Every share action funnels through
+ * here, so there is one place that handles the fallback.
+ */
+async function offerShareCode(code, { copiedMessage, panelHint }) {
   try {
     await navigator.clipboard.writeText(code);
-    toast('Code copied — send it, and they paste it into "Paste a code"');
+    toast(copiedMessage);
   } catch (e) {
-    // Clipboard access is refused in plenty of ordinary places — an iframe, an
-    // insecure origin, a browser that wants a gesture it didn't see. Show the
-    // code instead of a prompt() a sandboxed frame would swallow.
+    $('shareHint').textContent = panelHint;
     const out = $('shareCodeOut');
     out.value = code;
     showPanel('sharePanel');
     out.focus();
     out.select();
   }
+}
+
+/** The current on-screen numbers only — the plain, single-scenario share. */
+async function doShare() {
+  await offerShareCode(encodeShareBundle({ current: state, views: [] }), {
+    copiedMessage: 'Code copied — send it, and they paste it into "Paste a code"',
+    panelHint: "Copying it automatically didn't work in this browser. Select the code and copy it by hand — it's the whole of your numbers, so send it however you'd send anything else private."
+  });
+}
+
+/**
+ * One saved view. Carries the view's own name and state twice over, in both
+ * halves of the bundle: as `current`, so the recipient sees it immediately on
+ * paste rather than only filed away, and as the one entry in `views`, so it
+ * also lands in their library under its name rather than replacing whatever
+ * they already had on screen without a record of it.
+ */
+async function shareOneView(view) {
+  await offerShareCode(encodeShareBundle({ current: view.state, views: [view] }), {
+    copiedMessage: `"${view.name}" copied — send it, and they paste it into "Paste a code"`,
+    panelHint: `Copying it automatically didn't work in this browser. Select the code and copy it by hand — it's "${view.name}", so send it however you'd send anything else private.`
+  });
+}
+
+/**
+ * The whole library, current on-screen numbers left out deliberately: "all
+ * views" means exactly that, not views-plus-whatever-you-happen-to-be-typing.
+ * Share the current numbers too by saving them as a view first.
+ */
+async function shareAllViews(views) {
+  const n = views.length;
+  await offerShareCode(encodeShareBundle({ current: null, views }), {
+    copiedMessage: `${n} view${n === 1 ? '' : 's'} copied — send it, and they paste it into "Paste a code"`,
+    panelHint: `Copying it automatically didn't work in this browser. Select the code and copy it by hand — it's all ${n} of your saved views, so send it however you'd send anything else private.`
+  });
 }
 
 menuAction('btnShare', doShare);
@@ -1935,23 +1984,95 @@ $('btnSaveViewEnd').addEventListener('click', () => {
   $('viewName').focus();
 });
 
+/**
+ * File incoming views into the recipient's own library without clobbering
+ * anything already there under the same name — two people's "Plan A" are not
+ * the same plan. A collision gets " (received)", then " (received 2)" and so
+ * on, checked against both the existing library and names already claimed
+ * earlier in this same import.
+ */
+function importSharedViews(views) {
+  if (!views || !views.length) return [];
+
+  let existing;
+  try {
+    existing = new Set(listViews().map((v) => v.name.toLowerCase()));
+  } catch (e) {
+    return []; // storage is blocked; nothing can be filed
+  }
+
+  const imported = [];
+  for (const view of views) {
+    let name = view.name;
+    if (existing.has(name.toLowerCase())) {
+      let n = 2;
+      let candidate = `${name} (received)`;
+      while (existing.has(candidate.toLowerCase())) {
+        candidate = `${name} (received ${n})`;
+        n += 1;
+      }
+      name = candidate;
+    }
+    try {
+      saveView(name, view.state);
+      existing.add(name.toLowerCase());
+      imported.push(name);
+    } catch (e) { /* an unnamed or otherwise unsaveable entry — skip it, keep going */ }
+  }
+  return imported;
+}
+
+function describeImport(names) {
+  if (!names.length) return '';
+  return names.length === 1
+    ? ` Also added to your saved views: "${names[0]}".`
+    : ` Also added ${names.length} saved views: ${names.map((n) => `"${n}"`).join(', ')}.`;
+}
+
 $('btnLoadCode').addEventListener('click', () => {
   const input = $('loadCodeInput');
   if (!input.value.trim()) { toast('Paste a code first', true); return; }
+
+  let decoded;
   try {
-    const next = decodeShareCode(input.value);
-    applyState(next, { message: "Loaded those numbers. They've replaced what was on this page in your browser — not what's saved on their device." });
+    decoded = decodeShareCode(input.value);
+  } catch (e) {
+    toast("That code doesn't look right — check it copied in full", true);
+    return;
+  }
+
+  const isBundle = decoded && decoded.bundle === true;
+  const current = isBundle ? decoded.current : decoded;
+  const imported = importSharedViews(isBundle ? decoded.views : []);
+
+  if (current) {
+    applyState(current, {
+      message: "Loaded those numbers. They've replaced what was on this page in your browser — not what's saved on their device."
+        + describeImport(imported)
+    });
     cameFromCode = true;
     renderSaveCardSub();
-    input.value = '';
-    showPanel(null);
     revealResults();
     mobileSummaryUpdate();
     persist();
-    toast('Loaded');
-  } catch (e) {
-    toast("That code doesn't look right — check it copied in full", true);
+    input.value = '';
+    showPanel(null);
+    toast(imported.length ? `Loaded, plus ${imported.length} saved view${imported.length === 1 ? '' : 's'}` : 'Loaded');
+    return;
   }
+
+  // Views only — a "share all views" or "share this view" code pasted where
+  // the sender chose not to carry their on-screen numbers too. Nothing on
+  // this screen changes; the library gains what arrived.
+  if (imported.length) {
+    input.value = '';
+    showPanel('viewsPanel');
+    renderViews();
+    toast(`Added ${imported.length} saved view${imported.length === 1 ? '' : 's'}`);
+    return;
+  }
+
+  toast("That code doesn't look right — check it copied in full", true);
 });
 
 menuAction('btnReset', () => {

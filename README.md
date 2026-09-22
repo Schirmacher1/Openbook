@@ -437,10 +437,49 @@ drops the oldest to make room rather than refusing a save. Views read back throu
 sanitised. "Delete saved data" removes them too, but never silently: it names the views it
 is about to delete and asks first.
 
-**"Copy share code"** packs the state into a base64 string you can send by text or email;
-the recipient pastes it into "Paste a code". A link can't carry the data reliably — the
-page is often opened inside another app's viewer, which doesn't hand the script the URL —
-so the code is the transport.
+**Share codes carry three different scopes,** because "share your numbers" turned out to
+mean three different things depending on where you click:
+
+| Where | What it carries | What happens on paste |
+|---|---|---|
+| Manage menu → "Copy share code" | The numbers on screen right now | Replaces the recipient's on-screen numbers |
+| A view's own "Share" button | That one view | Replaces their on-screen numbers **and** is filed into their library under its name |
+| "Share all views…" | The whole library | Nothing on their screen changes — every view is added to their library |
+
+A link can't carry the data reliably — the page is often opened inside another app's
+viewer, which doesn't hand the script the URL — so the code is the transport in every
+case; only what goes into it differs.
+
+The wire format (`assets/js/state.js`) is a small versioned envelope:
+```
+{ openbookShare: 2, current: <state or null>, views: [{ name, state }, ...] }
+```
+`encodeShareCode()` — the original, single-state function — is untouched: it still emits
+a bare serialized state with no envelope at all, exactly as it always has, so every code
+already sent before this existed keeps decoding exactly as it always has. `decodeShareCode()`
+tells the two apart by one key, `openbookShare`, that a bare state can never have — every
+key a bare state does have comes from `PERSISTED_KEYS`, and that isn't one of them. A bare
+code decodes straight to a hydrated state, as before; a bundle decodes to
+`{ bundle: true, current, views }`, with `current` hydrated (or `null`, for a views-only
+code) and every view's state hydrated the same allowlisted way `listViews()` sanitises its
+own — a share code is the one truly untrusted input this page has, and nothing about
+wrapping several states in an envelope is exempt from that.
+
+Two things the paste handler gets right that a naive merge wouldn't:
+
+- **A name collision never clobbers.** Two people's "Plan A" are not the same plan, so an
+  incoming view whose name the recipient already has becomes "Plan A (received)", then
+  "Plan A (received 2)", checked against both their existing library and names already
+  claimed earlier in the same import — pasting the same code twice does not overwrite the
+  first import with the second.
+- **A views-only code touches nothing on screen.** "Share all views" deliberately leaves
+  `current` out, and the recipient's own in-progress numbers are never at risk from
+  pasting one — the views land in the library and nothing else moves.
+
+A full 24-view library, the cap the views feature already enforces, comes to about 44,000
+characters — comfortably inside `LIMITS.shareCode`'s 64,000-character guard, which
+`tests/security.test.js` exercises the same way it does for a single state: refused before
+`atob` or `JSON.parse` ever see it.
 
 ### No browser dialogs, anywhere
 

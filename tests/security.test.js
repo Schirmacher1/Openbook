@@ -10,7 +10,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { hydrate, createDefaultState, encodeShareCode, decodeShareCode, LIMITS } from '../assets/js/state.js';
+import {
+  hydrate, createDefaultState, encodeShareCode, encodeShareBundle, decodeShareCode, LIMITS, VIEW_LIMITS
+} from '../assets/js/state.js';
 import { compute } from '../assets/js/calc.js';
 import { evaluateBenchmarks, readiness } from '../assets/js/guidance.js';
 
@@ -366,4 +368,100 @@ test('views never throw when storage is blocked', async () => {
     assert.doesNotThrow(() => mod.clearViews());
     assert.throws(() => mod.saveView('X', createDefaultState()), /storage blocked/);
   });
+});
+
+/* ---------------------------------------------------------------------------
+ * Share bundles: a code that carries more than one state
+ *
+ * The bundle format has to be tried on the same untrusted footing as the bare
+ * one above — nothing in it is exempt from hydrate() just because it arrived
+ * inside an envelope instead of at the top level.
+ * ------------------------------------------------------------------------- */
+
+test('a bundle round-trips its current state and every view, hydrated', () => {
+  const current = createDefaultState();
+  current.city = 'Zürich · 日本 · café';
+  const viewState = createDefaultState();
+  viewState.salary = 210000;
+
+  const code = encodeShareBundle({ current, views: [{ name: 'Plan A', state: viewState }] });
+  const decoded = decodeShareCode(code);
+
+  assert.equal(decoded.bundle, true);
+  assert.equal(decoded.current.city, 'Zürich · 日本 · café');
+  assert.equal(decoded.views.length, 1);
+  assert.equal(decoded.views[0].name, 'Plan A');
+  assert.equal(decoded.views[0].state.salary, 210000);
+  assert.equal(Math.round(compute(decoded.views[0].state).price), Math.round(compute(viewState).price));
+});
+
+test('views-only and current-only bundles both encode cleanly', () => {
+  const state = createDefaultState();
+
+  const viewsOnly = decodeShareCode(encodeShareBundle({ views: [{ name: 'A', state }] }));
+  assert.equal(viewsOnly.current, null);
+  assert.equal(viewsOnly.views.length, 1);
+
+  const currentOnly = decodeShareCode(encodeShareBundle({ current: state, views: [] }));
+  assert.notEqual(currentOnly.current, null);
+  assert.equal(currentOnly.views.length, 0);
+});
+
+test('a code from before the bundle format existed still decodes as a bare state', () => {
+  // encodeShareCode() never changed shape — this pins that a code already sent
+  // under the old format keeps decoding exactly as it always has, not as an
+  // empty or malformed bundle.
+  const original = createDefaultState();
+  const decoded = decodeShareCode(encodeShareCode(original));
+  assert.notEqual(decoded, null);
+  assert.equal(decoded.bundle, undefined);
+  assert.equal(decoded.salary, original.salary);
+});
+
+test('a bundle sanitises every view the same way a corrupt storage entry is sanitised', () => {
+  const evil = btoa(unescape(encodeURIComponent(JSON.stringify({
+    openbookShare: 2,
+    current: { salary: Infinity, __proto__: { polluted: true } },
+    views: [
+      { name: '<script>x</script>'.repeat(20), state: { salary: -999, debtItems: 'not an array' } },
+      'not an object at all',
+      null,
+      { name: 123, state: { savingsItems: Array(500).fill({ label: 'x', value: 1 }) } }
+    ]
+  }))));
+
+  const decoded = decodeShareCode(evil);
+  assert.equal(decoded.bundle, true);
+  assert.ok(Number.isFinite(decoded.current.salary));
+  assert.equal(({}).polluted, undefined, 'no prototype pollution');
+
+  // Two usable entries survive (the string and the null are dropped); the
+  // over-long name is capped, the numeric name becomes the fallback text, and
+  // the oversized item list is capped at LIMITS.items.
+  assert.equal(decoded.views.length, 2);
+  assert.ok(decoded.views[0].name.length <= VIEW_LIMITS.name);
+  assert.equal(decoded.views[1].name, 'Untitled view');
+  assert.ok(decoded.views[1].state.savingsItems.length <= 100);
+  assert.ok(Number.isFinite(decoded.views[0].state.salary));
+});
+
+test('a bundle is capped at VIEW_LIMITS.count views, not accepted without bound', () => {
+  const state = createDefaultState();
+  const many = Array.from({ length: VIEW_LIMITS.count + 40 }, (_, i) => ({ name: `V${i}`, state }));
+  const decoded = decodeShareCode(encodeShareBundle({ views: many }));
+  assert.equal(decoded.views.length, VIEW_LIMITS.count);
+});
+
+test('an oversized bundle is refused before it is ever parsed', () => {
+  const state = createDefaultState();
+  const huge = Array.from({ length: VIEW_LIMITS.count }, (_, i) => ({
+    name: `V${i}`,
+    state: { ...state, city: 'x'.repeat(LIMITS.city) }
+  }));
+  const code = encodeShareBundle({ views: huge });
+  // The real limit is generous enough for a full library (see levers/compare
+  // tests); this only pins that the length guard still fires on something
+  // that exceeds it, using the same code path a hostile input would.
+  assert.throws(() => decodeShareCode('A'.repeat(LIMITS.shareCode + 1)), /too long/i);
+  assert.ok(code.length < LIMITS.shareCode, 'a full library must fit under the guard, not just be refused by it');
 });
