@@ -184,31 +184,51 @@
       </header>
 
       <!--
-        Three buttons, one per intention — keeping, sending, starting over.
-        Six flat ones wrapped into ragged rows on a phone and made the whole
-        strip read as a wall of equally-weighted choices.
+        One menu rather than a row of buttons: six actions, each with a line
+        saying what it does, and the calculator starts higher up the page.
+        Items ending in an ellipsis open a panel below; the rest act at once.
       -->
       <div class="toolbar">
         <p class="toolbar-status" id="saveStatus">Not saved yet — this page forgets everything when you close it.</p>
-        <div class="toolbar-actions">
-          <button type="button" class="btn btn-primary btn-sm" id="btnSaveToggle" aria-expanded="false" aria-controls="viewsPanel">Save</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="btnShareToggle" aria-expanded="false" aria-controls="sharePanel">Share</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="btnResetToggle" aria-expanded="false" aria-controls="resetPanel">Start over</button>
+        <div class="menu-wrap">
+          <button type="button" class="btn btn-primary btn-sm menu-trigger" id="btnMenu"
+                  aria-haspopup="menu" aria-expanded="false" aria-controls="actionMenu">Manage</button>
+
+          <div class="menu-list" id="actionMenu" role="menu" aria-labelledby="btnMenu" hidden>
+            <button type="button" role="menuitem" id="btnSave">
+              <span class="mi-name">Remember these numbers</span>
+              <span class="mi-desc">Keep them on this device, so they're here next time</span>
+            </button>
+            <button type="button" role="menuitem" id="btnViewsOpen">
+              <span class="mi-name">Saved views…</span>
+              <span class="mi-desc">Keep several scenarios side by side</span>
+            </button>
+            <hr />
+            <button type="button" role="menuitem" id="btnShare">
+              <span class="mi-name">Copy share code</span>
+              <span class="mi-desc">Send your numbers to someone as text</span>
+            </button>
+            <button type="button" role="menuitem" id="btnPasteOpen">
+              <span class="mi-name">Paste a code…</span>
+              <span class="mi-desc">Load numbers someone sent you</span>
+            </button>
+            <hr />
+            <button type="button" role="menuitem" id="btnReset">
+              <span class="mi-name">Start with empty fields</span>
+              <span class="mi-desc">Clear the example numbers and fill in your own</span>
+            </button>
+            <button type="button" role="menuitem" class="is-danger" id="btnClear">
+              <span class="mi-name">Delete saved data</span>
+              <span class="mi-desc">Remove the numbers and views stored on this device</span>
+            </button>
+          </div>
         </div>
       </div>
 
       <div class="drawer" id="viewsPanel" hidden>
         <div class="drawer-block">
-          <p class="drawer-title">Keep these numbers</p>
-          <p class="hint">On this device only. Nothing is uploaded.</p>
-          <div class="drawer-row">
-            <button type="button" class="btn btn-ghost btn-sm" id="btnSave">Remember them when I come back</button>
-          </div>
-        </div>
-
-        <div class="drawer-block">
-          <label class="drawer-title" for="viewName">Or save them as a named view</label>
-          <p class="hint">Keep several side by side — as things are, without the car loan, if the salary changes.</p>
+          <label class="drawer-title" for="viewName">Save these numbers as a named view</label>
+          <p class="hint">Keep several side by side — as things are, without the car loan, if the salary changes. This device only; nothing is uploaded.</p>
           <div class="load-row">
             <input type="text" id="viewName" placeholder="e.g. Current plan" maxlength="60" autocomplete="off" />
             <button type="button" class="btn btn-primary btn-sm" id="btnSaveView">Save view</button>
@@ -218,39 +238,13 @@
         </div>
       </div>
 
-      <div class="drawer" id="sharePanel" hidden>
+      <div class="drawer" id="pastePanel" hidden>
         <div class="drawer-block">
-          <p class="drawer-title">Send your numbers to someone</p>
-          <p class="hint">Copies a block of text you can send however you like. There's no server — the code <em>is</em> the data.</p>
-          <div class="drawer-row">
-            <button type="button" class="btn btn-primary btn-sm" id="btnShare">Copy share code</button>
-          </div>
-        </div>
-
-        <div class="drawer-block">
-          <label class="drawer-title" for="loadCodeInput">Someone sent you one?</label>
-          <p class="hint">Paste it below. This replaces the numbers on this page in your browser — it doesn't touch theirs.</p>
+          <label class="drawer-title" for="loadCodeInput">Paste the code you were sent</label>
+          <p class="hint">This replaces the numbers on this page in your browser — it doesn't touch theirs.</p>
           <div class="load-row">
             <input type="text" id="loadCodeInput" placeholder="Paste the code" autocomplete="off" spellcheck="false" />
-            <button type="button" class="btn btn-ghost btn-sm" id="btnLoadCode">Load</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="drawer" id="resetPanel" hidden>
-        <div class="drawer-block">
-          <p class="drawer-title">Clear the example numbers</p>
-          <p class="hint">Empties every field so you can fill in your own from scratch. Doesn't touch anything you've saved.</p>
-          <div class="drawer-row">
-            <button type="button" class="btn btn-ghost btn-sm" id="btnReset">Start with empty fields</button>
-          </div>
-        </div>
-
-        <div class="drawer-block">
-          <p class="drawer-title">Delete what's stored on this device</p>
-          <p class="hint">Removes the remembered numbers and every saved view. You'll be told what's about to go first.</p>
-          <div class="drawer-row">
-            <button type="button" class="btn btn-ghost btn-sm btn-danger" id="btnClear">Delete saved data</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btnLoadCode">Load</button>
           </div>
         </div>
       </div>

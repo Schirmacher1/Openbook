@@ -1113,28 +1113,84 @@ function renderViews() {
   }
 }
 
-/**
- * The three toolbar drawers are mutually exclusive — two open at once is how the
- * strip turned into a wall in the first place.
- */
-const DRAWERS = [
-  { button: 'btnSaveToggle', panel: 'viewsPanel', onOpen: () => { renderViews(); $('viewName').focus(); } },
-  { button: 'btnShareToggle', panel: 'sharePanel' },
-  { button: 'btnResetToggle', panel: 'resetPanel' }
-];
+/* ---------------------------------------------------------------------------
+ * The actions menu
+ *
+ * One trigger, one list. Items whose label ends in an ellipsis open a panel
+ * below; the rest act immediately and close the menu.
+ * ------------------------------------------------------------------------- */
 
-function toggleDrawer(target) {
-  const opening = $(target.panel).hidden;
-  for (const drawer of DRAWERS) {
-    const open = opening && drawer.panel === target.panel;
-    $(drawer.panel).hidden = !open;
-    $(drawer.button).setAttribute('aria-expanded', String(open));
-  }
-  if (opening && target.onOpen) target.onOpen();
+const PANELS = ['viewsPanel', 'pastePanel'];
+
+/** Show one panel and hide the other, or hide both with no argument. */
+function showPanel(id) {
+  for (const panel of PANELS) $(panel).hidden = panel !== id;
 }
 
-for (const drawer of DRAWERS) {
-  $(drawer.button).addEventListener('click', () => toggleDrawer(drawer));
+const menu = $('actionMenu');
+const menuTrigger = $('btnMenu');
+const menuItems = () => Array.from(menu.querySelectorAll('[role="menuitem"]'));
+
+function openMenu() {
+  menu.hidden = false;
+  menuTrigger.setAttribute('aria-expanded', 'true');
+  menuItems()[0]?.focus();
+}
+
+function closeMenu({ returnFocus = false } = {}) {
+  if (menu.hidden) return;
+  menu.hidden = true;
+  menuTrigger.setAttribute('aria-expanded', 'false');
+  if (returnFocus) menuTrigger.focus();
+}
+
+menuTrigger.addEventListener('click', () => {
+  if (menu.hidden) openMenu();
+  else closeMenu({ returnFocus: true });
+});
+
+// Roving focus, so the menu is usable without a pointer.
+menu.addEventListener('keydown', (event) => {
+  const items = menuItems();
+  const index = items.indexOf(document.activeElement);
+  const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
+
+  if (step !== undefined) {
+    event.preventDefault();
+    items[(index + step + items.length) % items.length].focus();
+  } else if (event.key === 'Home') {
+    event.preventDefault();
+    items[0].focus();
+  } else if (event.key === 'End') {
+    event.preventDefault();
+    items[items.length - 1].focus();
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    closeMenu({ returnFocus: true });
+  } else if (event.key === 'Tab') {
+    closeMenu();
+  }
+});
+
+menuTrigger.addEventListener('keydown', (event) => {
+  if (event.key === 'ArrowDown' || event.key === 'Escape') {
+    event.preventDefault();
+    if (event.key === 'ArrowDown') openMenu();
+    else closeMenu({ returnFocus: true });
+  }
+});
+
+// A click anywhere else dismisses it, the way a menu should.
+document.addEventListener('pointerdown', (event) => {
+  if (!menu.hidden && !menu.contains(event.target) && event.target !== menuTrigger) closeMenu();
+});
+
+/** Wire a menu item: run the action, then close the menu. */
+function menuAction(id, run) {
+  $(id).addEventListener('click', () => {
+    closeMenu();
+    run();
+  });
 }
 
 function doSaveView() {
@@ -1154,6 +1210,17 @@ function doSaveView() {
   }
 }
 
+menuAction('btnViewsOpen', () => {
+  showPanel('viewsPanel');
+  renderViews();
+  $('viewName').focus();
+});
+
+menuAction('btnPasteOpen', () => {
+  showPanel('pastePanel');
+  $('loadCodeInput').focus();
+});
+
 $('btnSaveView').addEventListener('click', doSaveView);
 $('viewName').addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
@@ -1166,9 +1233,9 @@ $('viewName').addEventListener('keydown', (event) => {
  * Toolbar
  * ------------------------------------------------------------------------- */
 
-$('btnSave').addEventListener('click', () => doSave(true));
+menuAction('btnSave', () => doSave(true));
 
-$('btnShare').addEventListener('click', async () => {
+menuAction('btnShare', async () => {
   const code = encodeShareCode(state);
   try {
     await navigator.clipboard.writeText(code);
@@ -1185,7 +1252,7 @@ $('btnLoadCode').addEventListener('click', () => {
     const next = decodeShareCode(input.value);
     applyState(next, { message: "Loaded those numbers. They've replaced what was on this page in your browser — not what's saved on their device." });
     input.value = '';
-    toggleDrawer(DRAWERS[1]);
+    showPanel(null);
     persist();
     toast('Loaded');
   } catch (e) {
@@ -1193,13 +1260,13 @@ $('btnLoadCode').addEventListener('click', () => {
   }
 });
 
-$('btnReset').addEventListener('click', () => {
+menuAction('btnReset', () => {
   applyState(createEmptyState(), { message: 'Cleared the example numbers. Everything is yours to fill in.' });
-  toggleDrawer(DRAWERS[2]);
+  showPanel(null);
   selectTab('tab-income');
 });
 
-$('btnClear').addEventListener('click', () => {
+menuAction('btnClear', () => {
   // Named views are deliberate work, so clearing them is never a side effect of
   // a single click — it is named and confirmed.
   let views = [];
