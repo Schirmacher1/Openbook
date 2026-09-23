@@ -410,6 +410,73 @@ test('views never throw when storage is blocked', async () => {
   });
 });
 
+test('syncItemToViews adds a same-named item to every view missing it', async () => {
+  const mod = await import('../assets/js/state.js');
+  await withLocalStorage(fakeStorage(), () => {
+    mod.saveView('Plan A', { ...createDefaultState(), debtItems: [] });
+    mod.saveView('Plan B', {
+      ...createDefaultState(),
+      debtItems: [{ id: 'x1', label: 'Car loan', mode: 'dollar', value: 300 }]
+    });
+
+    const changed = mod.syncItemToViews('debtItems', 'add', { label: 'Car loan', mode: 'dollar', value: 300 });
+
+    assert.equal(changed, 1, 'only the view that lacked it changes');
+    const byName = Object.fromEntries(mod.listViews().map((v) => [v.name, v.state]));
+    assert.equal(byName['Plan A'].debtItems.length, 1);
+    assert.equal(byName['Plan A'].debtItems[0].label, 'Car loan');
+    assert.equal(byName['Plan B'].debtItems.length, 1, 'Plan B already had one — not duplicated');
+  });
+});
+
+test('syncItemToViews removes a same-named item from every view that has it', async () => {
+  const mod = await import('../assets/js/state.js');
+  await withLocalStorage(fakeStorage(), () => {
+    mod.saveView('Plan A', {
+      ...createDefaultState(),
+      expenseItems: [{ id: 'e1', label: 'Netflix', mode: 'dollar', value: 15 }]
+    });
+    mod.saveView('Plan B', { ...createDefaultState(), expenseItems: [] });
+
+    const changed = mod.syncItemToViews('expenseItems', 'remove', { label: 'netflix', mode: 'dollar', value: 15 });
+
+    assert.equal(changed, 1, 'matching is case-insensitive; only Plan A had it');
+    const byName = Object.fromEntries(mod.listViews().map((v) => [v.name, v.state]));
+    assert.equal(byName['Plan A'].expenseItems.length, 0);
+    assert.equal(byName['Plan B'].expenseItems.length, 0);
+  });
+});
+
+test('syncItemToViews is a no-op with no label or no views', async () => {
+  const mod = await import('../assets/js/state.js');
+  await withLocalStorage(fakeStorage(), () => {
+    assert.equal(mod.syncItemToViews('debtItems', 'add', { label: '', value: 10 }), 0);
+
+    mod.saveView('Plan A', createDefaultState());
+    assert.equal(mod.syncItemToViews('debtItems', 'add', {}), 0, 'no label at all');
+  });
+});
+
+test('syncItemToViews with viewIds only touches the chosen views', async () => {
+  const mod = await import('../assets/js/state.js');
+  await withLocalStorage(fakeStorage(), () => {
+    mod.saveView('Plan A', { ...createDefaultState(), debtItems: [] });
+    mod.saveView('Plan B', { ...createDefaultState(), debtItems: [] });
+    mod.saveView('Plan C', { ...createDefaultState(), debtItems: [] });
+
+    const [a, , c] = mod.listViews().sort((x, y) => x.name.localeCompare(y.name));
+    const changed = mod.syncItemToViews(
+      'debtItems', 'add', { label: 'Car loan', mode: 'dollar', value: 300 }, [a.id, c.id]
+    );
+
+    assert.equal(changed, 2, 'only the two chosen views change');
+    const byName = Object.fromEntries(mod.listViews().map((v) => [v.name, v.state]));
+    assert.equal(byName['Plan A'].debtItems.length, 1);
+    assert.equal(byName['Plan B'].debtItems.length, 0, 'not chosen — left alone');
+    assert.equal(byName['Plan C'].debtItems.length, 1);
+  });
+});
+
 /* ---------------------------------------------------------------------------
  * Share bundles: a code that carries more than one state
  *

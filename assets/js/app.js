@@ -17,7 +17,7 @@ import { levers, debtRateNote } from './levers.js';
 import {
   createDefaultState, createEmptyState, newItem, hydrate,
   save, load, clear, saveDraft, loadDraft, clearDraft,
-  listViews, saveView, renameView, deleteView, clearViews, VIEW_LIMITS,
+  listViews, saveView, renameView, deleteView, clearViews, VIEW_LIMITS, syncItemToViews,
   encodeShareCode, encodeShareBundle, decodeShareCode, extractShareCode
 } from './state.js';
 
@@ -126,6 +126,88 @@ function banner(message) {
   dismiss.textContent = 'Dismiss';
   dismiss.addEventListener('click', () => { slot.textContent = ''; });
   wrap.append(text, dismiss);
+  slot.appendChild(wrap);
+}
+
+/**
+ * Like banner(), but asking a question with a choice of saved views instead
+ * of just stating something — the one place outside the views panel this
+ * page asks anything: which of your saved views (all of them, some of them,
+ * or none) an item just added or removed here should change the same way.
+ * Every checkbox starts checked — the common case is "all of them" — and
+ * "All views" both drives and reflects the individual rows, indeterminate
+ * when they disagree.
+ */
+function bannerSyncPicker(message, confirmLabel, views, onConfirm) {
+  const slot = $('bannerSlot');
+  slot.textContent = '';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'banner banner-sync';
+
+  const heading = document.createElement('p');
+  heading.className = 'banner-sync-heading';
+  heading.textContent = message;
+  wrap.appendChild(heading);
+
+  const list = document.createElement('div');
+  list.className = 'banner-sync-list';
+
+  let allBox = null;
+  const viewBoxes = views.map((view) => {
+    const row = document.createElement('label');
+    row.className = 'banner-sync-row';
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = true;
+    const text = document.createElement('span');
+    text.textContent = view.name;
+    row.append(box, text);
+    list.appendChild(row);
+    box.addEventListener('change', () => {
+      if (!allBox) return;
+      allBox.checked = viewBoxes.every((b) => b.box.checked);
+      allBox.indeterminate = !allBox.checked && viewBoxes.some((b) => b.box.checked);
+    });
+    return { id: view.id, box };
+  });
+
+  if (views.length > 1) {
+    const allRow = document.createElement('label');
+    allRow.className = 'banner-sync-row banner-sync-all';
+    allBox = document.createElement('input');
+    allBox.type = 'checkbox';
+    allBox.checked = true;
+    const allText = document.createElement('span');
+    allText.textContent = `All views (${views.length})`;
+    allRow.append(allBox, allText);
+    list.insertBefore(allRow, list.firstChild);
+    allBox.addEventListener('change', () => {
+      for (const { box } of viewBoxes) box.checked = allBox.checked;
+    });
+  }
+
+  wrap.appendChild(list);
+
+  const actions = document.createElement('div');
+  actions.className = 'banner-actions';
+
+  const confirm = document.createElement('button');
+  confirm.type = 'button';
+  confirm.textContent = confirmLabel;
+  confirm.addEventListener('click', () => {
+    const chosen = viewBoxes.filter(({ box }) => box.checked).map(({ id }) => id);
+    slot.textContent = '';
+    if (chosen.length) onConfirm(chosen);
+  });
+
+  const dismiss = document.createElement('button');
+  dismiss.type = 'button';
+  dismiss.textContent = 'Not now';
+  dismiss.addEventListener('click', () => { slot.textContent = ''; });
+
+  actions.append(confirm, dismiss);
+  wrap.appendChild(actions);
   slot.appendChild(wrap);
 }
 
@@ -438,6 +520,45 @@ function valueField(item, { allowPct }) {
 }
 
 /**
+ * Items just pushed by "Add a …" below, whose label is still the generic
+ * placeholder ("New savings item" and so on). Tracked by object identity so
+ * the label field's blur handler can ask about syncing the item to every
+ * saved view once — and only once — there's an actual name to ask about.
+ */
+const pendingAddSync = new Set();
+const ITEM_DEFAULT_LABEL = { savingsItems: 'New savings item', debtItems: 'New debt', expenseItems: 'New expense' };
+
+/**
+ * Offers to make the same add or remove — already applied on screen — in
+ * whichever saved views get picked, so a debt paid off or a new subscription
+ * doesn't mean opening each view by hand to match it. Silent when there's
+ * nothing to ask: no name to match on, or no saved views to touch.
+ */
+function maybeAskSync(action, kind, item) {
+  const label = (item.label || '').trim();
+  if (!label) return;
+
+  let views;
+  try { views = listViews(); } catch (e) { return; }
+  if (!views.length) return;
+
+  const verb = action === 'remove' ? 'Remove' : 'Add';
+  const prep = action === 'remove' ? 'from' : 'to';
+  bannerSyncPicker(
+    `${verb} "${label}" ${prep}:`,
+    verb,
+    views,
+    (chosenIds) => {
+      const changed = syncItemToViews(kind, action, item, chosenIds);
+      toast(changed
+        ? `${verb === 'Add' ? 'Added' : 'Removed'} "${label}" in ${changed} view${changed === 1 ? '' : 's'}`
+        : 'Already matched in every view you picked');
+      if (changed) renderViews();
+    }
+  );
+}
+
+/**
  * Render one editable list of line items. Called on structural change only
  * (add, remove, reorder, mode switch) — never on every keystroke.
  */
@@ -469,6 +590,11 @@ function renderLineList(containerId, items, options) {
     label.value = item.label;
     label.setAttribute('aria-label', 'Item name');
     label.addEventListener('input', () => { item.label = label.value; scheduleSave(); });
+    label.addEventListener('blur', () => {
+      if (!pendingAddSync.has(item)) return;
+      pendingAddSync.delete(item);
+      if (item.label.trim() !== ITEM_DEFAULT_LABEL[options.kind]) maybeAskSync('add', options.kind, item);
+    });
     top.appendChild(label);
 
     const include = iconButton(
@@ -492,7 +618,12 @@ function renderLineList(containerId, items, options) {
     top.appendChild(moves);
 
     const remove = iconButton('is-remove', `Remove ${item.label}`, ICONS.remove);
-    remove.addEventListener('click', () => { items.splice(index, 1); rerender(); });
+    remove.addEventListener('click', () => {
+      pendingAddSync.delete(item);
+      items.splice(index, 1);
+      rerender();
+      maybeAskSync('remove', options.kind, item);
+    });
     top.appendChild(remove);
 
     row.appendChild(top);
@@ -558,13 +689,13 @@ function renderLineList(containerId, items, options) {
 
 function renderLists() {
   renderLineList('savingsList', state.savingsItems, {
-    allowPct: true, allowPretax: true, emptyText: 'No savings items yet — add one below.'
+    kind: 'savingsItems', allowPct: true, allowPretax: true, emptyText: 'No savings items yet — add one below.'
   });
   renderLineList('debtsList', state.debtItems, {
-    allowPct: false, allowPretax: false, allowBalance: true, emptyText: 'No debts. Enviable.'
+    kind: 'debtItems', allowPct: false, allowPretax: false, allowBalance: true, emptyText: 'No debts. Enviable.'
   });
   renderLineList('expensesList', state.expenseItems, {
-    allowPct: false, allowPretax: true, emptyText: 'No recurring expenses yet — add one below.'
+    kind: 'expenseItems', allowPct: false, allowPretax: true, emptyText: 'No recurring expenses yet — add one below.'
   });
 }
 
@@ -1474,17 +1605,23 @@ wireSelect('state', 'stateCode');
 $('city').addEventListener('input', (event) => { state.city = event.target.value; touched(); });
 
 $('addSavings').addEventListener('click', () => {
-  state.savingsItems.push(newItem('sav'));
+  const item = newItem('sav');
+  state.savingsItems.push(item);
+  pendingAddSync.add(item);
   renderLists();
   touched();
 });
 $('addDebt').addEventListener('click', () => {
-  state.debtItems.push(newItem('debt'));
+  const item = newItem('debt');
+  state.debtItems.push(item);
+  pendingAddSync.add(item);
   renderLists();
   touched();
 });
 $('addExpense').addEventListener('click', () => {
-  state.expenseItems.push(newItem('exp'));
+  const item = newItem('exp');
+  state.expenseItems.push(item);
+  pendingAddSync.add(item);
   renderLists();
   touched();
 });

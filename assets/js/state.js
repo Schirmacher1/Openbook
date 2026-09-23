@@ -363,6 +363,45 @@ export function clearViews() {
   }
 }
 
+/**
+ * Applies one add or remove — already made to the current, on-screen list —
+ * to the same item list in one or more saved views too, so a recurring
+ * expense or debt doesn't have to be re-entered, or re-deleted, once per
+ * view by hand. `viewIds`, when given, limits this to that chosen set —
+ * "individual views" rather than the default "every view".
+ *
+ * Views are independent scenarios with no shared ids between them, so this
+ * matches by label rather than id: two views mean the same line item when
+ * they call it the same thing, whatever id each happened to generate it
+ * with. A view already carrying (or already lacking) a same-named item is
+ * left alone — this only ever adds or removes the one item asked for, never
+ * touches anything else in that view, and never fires the same change twice.
+ *
+ * Returns how many views actually changed, so the caller can say so.
+ */
+export function syncItemToViews(kind, action, item, viewIds = null) {
+  const label = String(item?.label ?? '').trim();
+  if (!label) return 0;
+  const key = label.toLowerCase();
+  const only = viewIds ? new Set(viewIds) : null;
+
+  let changed = 0;
+  for (const view of listViews()) {
+    if (only && !only.has(view.id)) continue;
+    const items = Array.isArray(view.state[kind]) ? view.state[kind] : [];
+    const has = items.some((i) => i.label.trim().toLowerCase() === key);
+    if (action === 'remove' ? !has : has) continue;
+
+    const nextItems = action === 'remove'
+      ? items.filter((i) => i.label.trim().toLowerCase() !== key)
+      : [...items, { ...item, id: uid(`${kind}sync`) }];
+
+    saveView(view.name, { ...view.state, [kind]: nextItems });
+    changed += 1;
+  }
+  return changed;
+}
+
 /* ---------------------------------------------------------------------------
  * Share codes
  *

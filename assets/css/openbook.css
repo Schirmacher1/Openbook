@@ -542,6 +542,15 @@ a { color: var(--accent-text); }
   border-radius: var(--radius-sm); padding: 11px 14px; font-size: 13.5px; margin-bottom: 14px;
 }
 .banner button { border: none; background: none; cursor: pointer; font-family: var(--font-ui); font-size: 13px; font-weight: 700; color: var(--ink-soft); }
+.banner-actions { display: flex; gap: 10px; flex-shrink: 0; }
+.banner-actions button:first-child { color: var(--accent-fill); }
+
+.banner-sync { flex-direction: column; align-items: stretch; gap: 10px; }
+.banner-sync-heading { margin: 0; font-weight: 600; }
+.banner-sync-list { display: flex; flex-direction: column; gap: 7px; max-height: 200px; overflow-y: auto; }
+.banner-sync-row { display: flex; align-items: center; gap: 9px; cursor: pointer; font-size: 13.5px; }
+.banner-sync-all { font-weight: 600; padding-bottom: 7px; border-bottom: 1px solid var(--border); }
+.banner-sync .banner-actions { justify-content: flex-end; }
 
 .calc-grid { display: grid; gap: 20px; align-items: start; }
 @media (min-width: 1000px) { .calc-grid { grid-template-columns: minmax(0, 1.12fr) minmax(0, .88fr); gap: 24px; } }
@@ -1351,7 +1360,8 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
  * from how well each one honours a CSS property still filling in.
  */
 .view-compare input,
-.cmp-current input {
+.cmp-current input,
+.banner-sync-row input {
   appearance: none; -webkit-appearance: none;
   width: 18px; height: 18px; margin: 0; flex-shrink: 0;
   display: inline-grid; place-content: center;
@@ -1361,18 +1371,29 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
   transition: background-color .15s ease, border-color .15s ease;
 }
 .view-compare input:checked,
-.cmp-current input:checked {
+.cmp-current input:checked,
+.banner-sync-row input:checked {
   background: var(--accent-fill); border-color: var(--accent-fill);
 }
 .view-compare input:checked::after,
-.cmp-current input:checked::after {
+.cmp-current input:checked::after,
+.banner-sync-row input:checked::after {
   content: '';
   width: 9px; height: 5px;
   border-left: 2px solid var(--on-accent); border-bottom: 2px solid var(--on-accent);
   transform: rotate(-45deg) translateY(-1px);
 }
 .view-compare input:focus-visible,
-.cmp-current input:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+.cmp-current input:focus-visible,
+.banner-sync-row input:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+.banner-sync-row input:indeterminate {
+  background: var(--accent-fill); border-color: var(--accent-fill);
+}
+.banner-sync-row input:indeterminate::after {
+  content: '';
+  width: 9px; height: 2px;
+  background: var(--on-accent);
+}
 
 .cmp { margin-top: 16px; }
 .cmp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
