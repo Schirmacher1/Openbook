@@ -416,6 +416,25 @@ export function encodeShareBundle({ current, views } = {}) {
 }
 
 /**
+ * Pulls the bare code out of whatever was pasted — the code itself, or a
+ * whole share link if someone pasted the link text instead of tapping it
+ * (received as plain, non-clickable text; copied from the address bar by
+ * hand; anything short of tapping it as a link). A share link carries the
+ * code after `#s=`, URL-encoded; anything else is returned trimmed, as the
+ * bare code it's assumed to already be.
+ */
+export function extractShareCode(raw) {
+  const trimmed = String(raw ?? '').trim();
+  const match = /#s=([^&\s]+)/.exec(trimmed);
+  if (!match) return trimmed;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch (e) {
+    return match[1]; // malformed percent-encoding — fall back to the raw capture
+  }
+}
+
+/**
  * Reads either format code produces. A bare code — from encodeShareCode(), or
  * from any earlier version of the page, since the format hasn't changed —
  * comes back as a hydrated state directly, exactly as it always has, for
@@ -427,7 +446,7 @@ export function encodeShareBundle({ current, views } = {}) {
  * corrupted entry is dropped or defaulted, never trusted.
  */
 export function decodeShareCode(code) {
-  const raw = String(code).trim();
+  const raw = extractShareCode(code);
   // Refuse to decode something far larger than any real state, rather than
   // handing a multi-megabyte string to atob and JSON.parse.
   if (raw.length > LIMITS.shareCode) throw new Error('Share code is too long to be real');

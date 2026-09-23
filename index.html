@@ -217,12 +217,12 @@
             </button>
             <hr />
             <button type="button" role="menuitem" id="btnShare">
-              <span class="mi-name">Copy share code</span>
-              <span class="mi-desc">Send your numbers to someone as text</span>
+              <span class="mi-name">Copy share link</span>
+              <span class="mi-desc">Send your numbers to someone — they just tap it</span>
             </button>
             <button type="button" role="menuitem" id="btnPasteOpen">
               <span class="mi-name">Paste a code…</span>
-              <span class="mi-desc">Load numbers someone sent you</span>
+              <span class="mi-desc">For a code that arrived as plain text, not a tappable link</span>
             </button>
             <button type="button" role="menuitem" id="btnInviteOpen">
               <span class="mi-name">Invite by text…</span>
@@ -294,28 +294,32 @@
 
       <div class="drawer" id="sharePanel" hidden>
         <div class="drawer-block">
-          <label class="drawer-title" for="shareCodeOut">Your share code</label>
+          <label class="drawer-title" for="shareCodeOut">Your share link</label>
           <p class="hint" id="shareHint"></p>
           <textarea id="shareCodeOut" class="share-out" rows="3" readonly spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
         </div>
       </div>
 
       <!--
-        A share code is base64 — case-sensitive, one flipped letter and the
-        whole thing fails to decode. Left to their defaults, mobile keyboards
-        autocapitalize the first character of whatever lands in a text input,
-        pasted or typed, which silently corrupts a code starting with a
-        lowercase letter. autocapitalize="off" (and autocorrect="off" for
-        iOS, which treats it as a separate attribute) stops that before it
-        happens, rather than explaining after the fact why a correctly-copied
-        code "doesn't work".
+        The link puts the code after #s= in the fragment, which a browser
+        never sends to any server — same privacy property as a bare code,
+        tap instead of copy-paste. That's not just convenience: a pasted
+        code depends on the clipboard round-tripping a long, case-sensitive
+        string exactly, and mobile keyboards don't leave that alone by
+        default (autocapitalize flips the case of the first character,
+        pasted or typed, silently breaking a code that starts lowercase; iOS
+        can also interpose an "Allow Paste" prompt that's easy to miss). A
+        tapped link just navigates, so none of that is in play. The bare
+        "Paste a code" box below still exists — for a code that arrived as
+        plain text, or was typed rather than tapped — and still needs
+        autocapitalize="off" / autocorrect="off" for exactly that reason.
       -->
       <div class="drawer" id="pastePanel" hidden>
         <div class="drawer-block">
-          <label class="drawer-title" for="loadCodeInput">Paste the code you were sent</label>
+          <label class="drawer-title" for="loadCodeInput">Paste the code or link you were sent</label>
           <p class="hint">This replaces the numbers on this page in your browser — it doesn't touch theirs.</p>
           <div class="load-row">
-            <input type="text" id="loadCodeInput" placeholder="Paste the code" autocomplete="off" spellcheck="false" autocapitalize="off" autocorrect="off" />
+            <input type="text" id="loadCodeInput" placeholder="Paste the code or link" autocomplete="off" spellcheck="false" autocapitalize="off" autocorrect="off" />
             <button type="button" class="btn btn-primary btn-sm" id="btnLoadCode">Load</button>
           </div>
         </div>
@@ -326,14 +330,17 @@
         says so twice: once here, once in the message itself. It opens the
         visitor's own Messages app with a link and nothing else — your salary,
         debts and everything else in this form stay exactly where they are,
-        on this device, unless you separately use "Copy share code".
+        on this device, unless you separately use "Copy share link". Both
+        are links, which is exactly the pair a skim of this panel could
+        confuse — the invite link is bare (nothing after the page's own
+        address), the share link carries your numbers after #s=.
       -->
       <div class="drawer" id="invitePanel" hidden>
         <div class="drawer-block">
           <label class="drawer-title" for="inviteBody">Invite someone to try Openbook</label>
           <p class="hint">Opens your own Messages app with a link, ready to send. <strong>Your numbers are never
             part of this</strong> — it's the same page you started from, empty for them. Want to send your actual
-            numbers instead? Use "Copy share code" or a saved view's "Share" button.</p>
+            numbers instead? Use "Copy share link" or a saved view's "Share" button.</p>
 
           <div class="field">
             <label for="invitePhone">Their number <span class="optional">optional</span></label>
@@ -690,7 +697,7 @@
             <div class="save-card-actions">
               <button type="button" class="btn btn-primary btn-sm" id="btnSaveEnd">Save to this device</button>
               <button type="button" class="btn btn-ghost btn-sm" id="btnSaveViewEnd">Save as a named view…</button>
-              <button type="button" class="btn btn-ghost btn-sm" id="btnShareEnd">Copy share code</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btnShareEnd">Copy share link</button>
             </div>
             <p class="hint" id="saveStatusEnd"></p>
           </div>
@@ -901,11 +908,11 @@
         </details>
         <details>
           <summary>Can I share my numbers with a partner?</summary>
-          <div class="details-body"><p>Yes, at whichever scope fits. "Copy share code" in the Manage menu packs just the numbers on screen. Open "Saved views" and each one has its own "Share" button — that sends one scenario, and it lands on their screen <em>and</em> in their library at once, so they don't have to re-save it to compare it against their own. "Share all views" sends your whole library in one code. Every one of them pastes into "Paste a code" the same way; the code <em>is</em> the data, nothing is uploaded, and pasting a views-only code never touches what's on their screen — it only adds to their library.</p></div>
+          <div class="details-body"><p>Yes, at whichever scope fits. "Copy share link" in the Manage menu packs just the numbers on screen. Open "Saved views" and each one has its own "Share" button — that sends one scenario, and it lands on their screen <em>and</em> in their library at once, so they don't have to re-save it to compare it against their own. "Share all views" sends your whole library in one link. Every one of them works the same way for the person receiving it: they open the link and it's already loaded, no pasting required — the numbers travel in the link itself, after a <code>#</code> a browser never sends to any server, so nothing is uploaded and nothing sits in anyone's server logs. Got a code as plain text instead of a tappable link (read aloud over the phone, say)? "Paste a code" still takes it. Pasting a views-only link or code never touches what's on their screen — it only adds to their library.</p></div>
         </details>
         <details>
           <summary>What does "Invite by text" actually send?</summary>
-          <div class="details-body"><p>A link, and nothing else. It opens your own phone's Messages app with a short message pre-filled — "here's a calculator worth trying," plus the page's plain address — and you send it exactly like any other text, from your own number, through your own carrier. It never includes your salary, your debts, or anything else in this form; the person who gets it opens the same empty page you started from. If you want to send your <em>actual</em> numbers, that's a different button — "Copy share code," or a saved view's "Share" — and it works over whatever channel you paste it into, texting included. The two are kept apart on purpose: an invite is safe to send to anyone without a second thought, and a share code is your real figures, worth sending only where you'd want anyone to have them.</p></div>
+          <div class="details-body"><p>A link, and nothing else. It opens your own phone's Messages app with a short message pre-filled — "here's a calculator worth trying," plus the page's plain address — and you send it exactly like any other text, from your own number, through your own carrier. It never includes your salary, your debts, or anything else in this form; the person who gets it opens the same empty page you started from. If you want to send your <em>actual</em> numbers, that's a different button — "Copy share link," or a saved view's "Share" — and yes, that's a link too, but a longer one: your numbers travel after a <code>#</code> in the address itself, which is why it's a specific button rather than something you'd type by hand. The two are kept apart on purpose: an invite is safe to send to anyone without a second thought, and a share link is your real figures, worth sending only where you'd want anyone to have them.</p></div>
         </details>
         <details>
           <summary>Is this financial advice?</summary>
