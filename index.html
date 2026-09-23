@@ -296,16 +296,26 @@
         <div class="drawer-block">
           <label class="drawer-title" for="shareCodeOut">Your share code</label>
           <p class="hint" id="shareHint"></p>
-          <textarea id="shareCodeOut" class="share-out" rows="3" readonly spellcheck="false"></textarea>
+          <textarea id="shareCodeOut" class="share-out" rows="3" readonly spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
         </div>
       </div>
 
+      <!--
+        A share code is base64 — case-sensitive, one flipped letter and the
+        whole thing fails to decode. Left to their defaults, mobile keyboards
+        autocapitalize the first character of whatever lands in a text input,
+        pasted or typed, which silently corrupts a code starting with a
+        lowercase letter. autocapitalize="off" (and autocorrect="off" for
+        iOS, which treats it as a separate attribute) stops that before it
+        happens, rather than explaining after the fact why a correctly-copied
+        code "doesn't work".
+      -->
       <div class="drawer" id="pastePanel" hidden>
         <div class="drawer-block">
           <label class="drawer-title" for="loadCodeInput">Paste the code you were sent</label>
           <p class="hint">This replaces the numbers on this page in your browser — it doesn't touch theirs.</p>
           <div class="load-row">
-            <input type="text" id="loadCodeInput" placeholder="Paste the code" autocomplete="off" spellcheck="false" />
+            <input type="text" id="loadCodeInput" placeholder="Paste the code" autocomplete="off" spellcheck="false" autocapitalize="off" autocorrect="off" />
             <button type="button" class="btn btn-primary btn-sm" id="btnLoadCode">Load</button>
           </div>
         </div>
