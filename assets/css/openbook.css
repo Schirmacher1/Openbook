@@ -793,6 +793,27 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
 
 .result-card-soft { background: var(--surface); border-color: var(--border); }
 
+/* ---- Cash-vs-down-payment notice ---- */
+
+/* The caution palette already used for a readiness check that needs a
+   second look (.check-mark.is-caution) — not an error, but not something to
+   let a viewer scroll past unnoticed either. */
+.cash-notice {
+  margin-top: 16px; padding: 14px 16px;
+  background: var(--brass-soft); border: 1px solid var(--brass-line);
+  border-radius: var(--radius-sm);
+}
+.cash-notice[hidden] { display: none; }
+.cash-notice-heading { margin: 0 0 12px; font-size: 13.5px; font-weight: 700; color: var(--brass-text); }
+.cash-notice-compare { display: flex; gap: 20px; flex-wrap: wrap; }
+.cash-notice-figure { display: flex; flex-direction: column; gap: 2px; }
+.cash-notice-label { font-size: 12px; color: var(--ink-soft); }
+.cash-notice-value {
+  font-family: var(--font-mono); font-size: 17px; font-weight: 700;
+  font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.cash-notice-detail { margin: 12px 0 0; font-size: 13px; color: var(--ink-soft); }
+
 /* ---- Payment composition ---- */
 
 .payment-viz { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--accent-line); }

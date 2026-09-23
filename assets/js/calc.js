@@ -136,15 +136,19 @@ export function housingModel(state) {
     ? Math.max(0, state.insManual)
     : (price * (INS_TIER_RATE[insTier] / 100)) / 12;
 
-  function paymentAt(price) {
+  /**
+   * The general form, parameterized by down payment rather than always the
+   * model's own fixed figure — what solvePriceForCash() searches over when
+   * the down payment itself has to give a little to keep the price up (see
+   * its own comment for why that's the right trade). `paymentAt()` below is
+   * just this pinned to the model's stated down payment, which is what every
+   * other call site — and every solver that never touches cash — still uses.
+   */
+  function paymentFor(price, down) {
     const p = Math.max(0, price);
-    const loan = Math.max(0, p - downpayment);
-    // The dollars actually going down, as opposed to the figure typed in: the
-    // two only differ below the down payment itself, where there's no loan
-    // and putting the whole stated amount down would be more than the price
-    // — see solvePriceByCash(), the only place a price down here comes from.
-    const down = Math.min(p, downpayment);
-    const downPct = p > 0 ? (down / p) * 100 : 100;
+    const d = Math.max(0, Math.min(down, p));
+    const loan = p - d;
+    const downPct = p > 0 ? (d / p) * 100 : 100;
     // Held to a ceiling a real rate card could quote: the tier multipliers put
     // the weakest credit past 5% a year otherwise, which no insurer writes.
     const pmiRate = downPct >= 20
@@ -155,12 +159,14 @@ export function housingModel(state) {
     const tax = (p * (stateInfo.proptax / 100)) / 12;
     const insurance = insuranceAt(p);
     return {
-      price: p, loan, down, pi, tax, insurance, pmi, hoa: hoaMonthly, downPct, pmiRate,
+      price: p, loan, down: d, pi, tax, insurance, pmi, hoa: hoaMonthly, downPct, pmiRate,
       total: pi + tax + insurance + pmi + hoaMonthly
     };
   }
 
-  return { band, stateInfo, rate, downpayment, hoaMonthly, insTier, insuranceAt, paymentAt };
+  const paymentAt = (price) => paymentFor(price, downpayment);
+
+  return { band, stateInfo, rate, downpayment, hoaMonthly, insTier, insuranceAt, paymentAt, paymentFor };
 }
 
 /**
@@ -209,7 +215,7 @@ export function isPmiTierLimited(price, model) {
  * On its own this never changes the monthly payment, so it never changes what
  * a paycheck can afford month to month — it changes whether the purchase can
  * happen at all, which used to be a question this page didn't ask. Telling it
- * how much cash there actually is (below, in solvePriceByCash()) turns that
+ * how much cash there actually is (below, in solvePriceForCash()) turns that
  * into a second, opt-in ceiling on the price itself.
  */
 export function cashToClose(payment, model) {
@@ -223,30 +229,68 @@ export function cashToClose(payment, model) {
 }
 
 /**
- * Largest home price whose cash to close fits the cash actually on hand.
- * cashToClose().total is non-strictly increasing in price across the whole
- * range from $0, including through the down payment: above it, a fixed
- * dollar down payment plus fees and escrow that scale with price; below it,
- * there's no loan, so paymentAt() folds the down payment paid down to the
- * price itself (see its own comment) rather than something bigger than the
- * purchase, and that still only grows with price. So cash too tight to cover
- * the down payment as typed means a smaller purchase with a smaller down
- * payment, financed entirely in cash — not "no price is affordable" — and
- * one bisection over the whole range finds it, the same shape as
- * solvePrice(). Only cash that is itself zero (or less) has no reachable
- * price at all.
+ * Largest home price reachable when cash is tighter than the down payment
+ * typed in would need, letting the down payment itself shrink — never past
+ * $0, never past what was typed — to make room for it, rather than holding
+ * that figure fixed and shrinking the price instead.
+ *
+ * That trade is always the better one, not just a preference: a smaller down
+ * payment never lowers the monthly payment's own ceiling, `housingBudget` —
+ * that figure never involved cash to begin with — so giving up some down
+ * payment can only ever buy room under a budget that was already the
+ * tightest test in play, never cost anything against it. Concretely: at any
+ * fixed price, less down payment costs more monthly (a bigger loan, and
+ * maybe a worse PMI tier) but less cash (obviously); so the down payment
+ * that best protects the monthly budget, out of whatever cash allows, is
+ * always the largest one cash allows — which is what bestDownFor() finds —
+ * and the price that empties both constraints at once is the one this
+ * solves for.
+ *
+ * Two nested bisections, not one: for candidate price hi in the outer
+ * search, bestDownFor(hi) is itself a bisection over down payment, since
+ * cashToClose().total is monotonic in down payment at a fixed price for the
+ * same reason it's monotonic in price at a fixed down payment (see
+ * cashToClose()'s own comment) — more down payment costs more cash, dollar
+ * for dollar, minus a sliver of prepaid interest saved on the smaller loan,
+ * far too small to ever reverse that. With the down payment that best
+ * protects it settled, whether the monthly payment then fits the budget is a
+ * single comparison — and *that* combination is non-strictly increasing in
+ * price for the usual reason (a bigger price needs more of both, cash and
+ * monthly payment), which is what makes the outer bisection valid too.
  */
-export function solvePriceByCash(totalCash, model) {
-  if (!(totalCash > 0)) return 0;
+export function solvePriceForCash(housingBudget, totalCash, model) {
+  const fullDown = model.downpayment;
+
+  function bestDownFor(price) {
+    const cap = Math.min(fullDown, price);
+    if (cashToClose(model.paymentFor(price, cap), model).total <= totalCash) return cap;
+    if (cashToClose(model.paymentFor(price, 0), model).total > totalCash) return -1;
+    let lo = 0;
+    let hi = cap;
+    for (let i = 0; i < 60; i++) {
+      const mid = (lo + hi) / 2;
+      if (cashToClose(model.paymentFor(price, mid), model).total <= totalCash) lo = mid;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  function feasible(price) {
+    const down = bestDownFor(price);
+    return down >= 0 && model.paymentFor(price, down).total <= housingBudget;
+  }
+
+  if (!(totalCash > 0) || !feasible(0)) return { price: 0, down: 0 };
+
   let lo = 0;
-  let hi = model.downpayment + 4_000_000;
-  while (cashToClose(model.paymentAt(hi), model).total <= totalCash && hi < 50_000_000) hi *= 2;
+  let hi = fullDown + 4_000_000;
+  while (feasible(hi) && hi < 50_000_000) hi *= 2;
   for (let i = 0; i < 60; i++) {
     const mid = (lo + hi) / 2;
-    if (cashToClose(model.paymentAt(mid), model).total <= totalCash) lo = mid;
+    if (feasible(mid)) lo = mid;
     else hi = mid;
   }
-  return lo;
+  return { price: lo, down: Math.max(0, bestDownFor(lo)) };
 }
 
 /* ---------------------------------------------------------------------------
@@ -321,13 +365,15 @@ export function compute(state) {
   // Optional second ceiling: what the cash on hand actually covers at
   // closing, not just what the paycheck covers monthly. Off (no cap at all)
   // when totalCash hasn't been entered — null, not the very different real
-  // value zero — same as every other test on this page: it can only ever
-  // lower the price, never raise it past what the budget alone allows.
+  // value zero. When it does bind, the down payment itself gives way first
+  // (see solvePriceForCash()) so the price stays as high as the budget can
+  // still support, rather than holding the stated down payment fixed and
+  // giving up price instead.
   const usingCashLimit = state.totalCash != null;
-  const cashPrice = usingCashLimit ? solvePriceByCash(state.totalCash, model) : Infinity;
-  const price = usingCashLimit ? Math.min(budgetPrice, cashPrice) : budgetPrice;
-  const cappedByCash = usingCashLimit && cashPrice < budgetPrice - 0.01;
-  const payment = model.paymentAt(price);
+  const cashSolved = usingCashLimit ? solvePriceForCash(housingBudget, state.totalCash, model) : null;
+  const price = usingCashLimit ? cashSolved.price : budgetPrice;
+  const cappedByCash = usingCashLimit && price < budgetPrice - 0.01;
+  const payment = usingCashLimit ? model.paymentFor(price, cashSolved.down) : model.paymentAt(price);
 
   // What a lender will actually approve. A conventional loan applies no front-end
   // housing cap — total debt-to-income is the constraint — so this is one
@@ -404,12 +450,10 @@ export function compute(state) {
     model,
     price,
     payment,
-    // The payment-budget price on its own, and the cash-on-hand price
-    // (Infinity when no cash figure was entered, so it never binds) — kept
-    // separate from the min() of the two above so the interface can say
-    // which test actually drew the line.
+    // The price the monthly budget alone would allow, kept alongside the
+    // final `price` above so the interface can say by how much cash held it
+    // back, when it did.
     budgetPrice,
-    cashPrice,
     usingCashLimit,
     cappedByCash,
     pmiTierLimited: !usingTestPrice && !cappedByRule && !cappedByCash && housingBudget > 0 && unallocated > 1
