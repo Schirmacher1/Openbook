@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 
 import {
   parseNum, bracketTax, monthlyPI, rateForTerm, pmiBaseForDownPct,
-  computePaycheck, housingModel, solvePrice, compute
+  computePaycheck, housingModel, solvePrice, solvePriceByCash, cashToClose, compute
 } from '../assets/js/calc.js';
 import { BRACKETS, CREDIT_BANDS, SS_WAGE_BASE, STATE_DATA, PMI_RATE_CAP } from '../assets/js/data.js';
 import { createDefaultState, createEmptyState } from '../assets/js/state.js';
@@ -125,6 +125,29 @@ test('20% down removes PMI entirely', () => {
   const model = housingModel({ ...createDefaultState(), downpayment: 100000 });
   assert.equal(model.paymentAt(500000).pmi, 0);
   assert.ok(model.paymentAt(600000).pmi > 0);
+});
+
+test('solvePriceByCash finds the largest price whose cash to close fits', () => {
+  const state = { ...createDefaultState(), downpayment: 40000, insMode: 'manual', insManual: 120 };
+  const model = housingModel(state);
+  const cash = 60000;
+  const price = solvePriceByCash(cash, model);
+
+  near(cashToClose(model.paymentAt(price), model).total, cash, 5);
+  // One percent more house must cost more cash to close, or the solver stopped short.
+  assert.ok(cashToClose(model.paymentAt(price * 1.01), model).total > cash);
+});
+
+test('solvePriceByCash never searches below the down payment itself', () => {
+  const model = housingModel({ ...createDefaultState(), downpayment: 40000 });
+  // Plenty of cash: the ceiling should sit well above the down payment, not at it.
+  assert.ok(solvePriceByCash(500000, model) > 40000);
+});
+
+test('solvePriceByCash returns 0 when even the cheapest price costs more cash than there is', () => {
+  const model = housingModel({ ...createDefaultState(), downpayment: 40000 });
+  const flooredCash = cashToClose(model.paymentAt(40000), model).total;
+  assert.equal(solvePriceByCash(flooredCash - 1, model), 0);
 });
 
 /* -------------------------------------------------------------------------- */
@@ -311,6 +334,37 @@ test('compute: a capped budget shows the held-back money as unallocated', () => 
   near(result.ledger.unallocated, result.leftover - result.housingBudget, 1);
   // ...and it must not be explained away as a PMI-tier rounding sliver.
   assert.equal(result.pmiTierLimited, false);
+});
+
+test('compute: totalCash left blank never affects the price', () => {
+  const withoutCash = compute(createDefaultState());
+  const explicitNull = compute({ ...createDefaultState(), totalCash: null });
+  near(withoutCash.price, explicitNull.price, 0.01);
+  assert.equal(explicitNull.usingCashLimit, false);
+  assert.equal(explicitNull.cappedByCash, false);
+});
+
+test('compute: a tight cash figure caps the price below the payment budget', () => {
+  const budgetOnly = compute(createDefaultState());
+  // Comfortably less than what closing on the budget-only price would need.
+  const state = { ...createDefaultState(), totalCash: budgetOnly.model.downpayment + 5000 };
+  const result = compute(state);
+
+  assert.equal(result.usingCashLimit, true);
+  assert.ok(result.cappedByCash, 'the cash ceiling must bind here');
+  assert.ok(result.price < budgetOnly.price, 'cash-capped price must be lower than the budget-only price');
+  near(result.price, result.cashPrice, 0.01);
+  // The cash actually needed at the solved price must fit what was entered.
+  assert.ok(result.cash.total <= state.totalCash + 1);
+  // It must not be misread as a PMI-tier rounding sliver either.
+  assert.equal(result.pmiTierLimited, false);
+});
+
+test('compute: a generous cash figure leaves the payment budget in charge', () => {
+  const result = compute({ ...createDefaultState(), totalCash: 5_000_000 });
+  assert.equal(result.usingCashLimit, true);
+  assert.equal(result.cappedByCash, false);
+  near(result.price, result.budgetPrice, 0.01);
 });
 
 test('compute: every household lands inside the rule on housing', () => {

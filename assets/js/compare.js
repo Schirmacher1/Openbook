@@ -175,6 +175,7 @@ function columnFor(entry) {
     // below came from a different price would be two answers to one question.
     usingTestPrice: ledger.usingTestPrice,
     cappedByRule: result.cappedByRule,
+    cappedByCash: result.cappedByCash,
 
     values: {
       price: ledger.payment.price,
