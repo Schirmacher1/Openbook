@@ -1,0 +1,964 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Openbook — what you can actually afford</title>
+<meta name="description" content="A home affordability calculator built on your take-home pay, not the biggest loan a lender would approve. Free, ad-free, and it runs entirely in your browser." />
+<meta name="color-scheme" content="light dark" />
+
+<!--
+  Openbook has no back end, so the policy below is as closed as a page can be:
+  no inline script, nothing may be fetched or sent anywhere, no forms, no
+  framing, no plugins. If a hostile share code ever did find a way to inject
+  markup, connect-src 'none' means it still has nowhere to send anything.
+
+  frame-ancestors and X-Frame-Options only take effect as real HTTP headers —
+  a <meta> tag can't set them. See README for the host config that does.
+-->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self';
+  style-src 'self';
+  font-src 'self';
+  img-src 'self' data:;
+  connect-src 'none';
+  form-action 'none';
+  base-uri 'none';
+  object-src 'none';
+" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
+<meta name="theme-color" content="#f3f6f2" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0e1613" media="(prefers-color-scheme: dark)" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Openbook — what you can actually afford" />
+<meta property="og:description" content="Most calculators tell you the biggest loan you could get approved for. Openbook starts from what actually lands in your bank account." />
+<meta name="twitter:card" content="summary_large_image" />
+
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+
+<!--
+  The typefaces are served from here rather than from Google. Two reasons, and
+  the second is the one that matters: the third-party stylesheet was a blocking
+  request on the critical path worth ~300ms of first paint, and every visitor's
+  IP address reached Google before a single number appeared on a page whose
+  whole promise is that nothing leaves the device. Self-hosted, the policy above
+  needs no third-party origin at all. See scripts/fetch-fonts.mjs.
+-->
+<link rel="preload" href="assets/fonts/xn7gYHE41ni1AdIRggexSg.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="stylesheet" href="assets/css/fonts.css" />
+<link rel="stylesheet" href="assets/css/openbook.css" />
+
+<script src="assets/js/theme.js"></script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Openbook",
+  "applicationCategory": "FinanceApplication",
+  "operatingSystem": "Any",
+  "description": "A home affordability calculator based on take-home pay rather than the maximum loan a lender would approve.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+</head>
+
+<body>
+<a class="skip-link" href="#calculator">Skip to the calculator</a>
+
+<header class="site-header" id="top">
+  <div class="shell header-inner">
+    <a class="brand" href="#top" aria-label="Openbook home">
+      <svg class="brandmark" width="30" height="30" viewBox="0 0 30 30" aria-hidden="true">
+        <rect width="30" height="30" rx="9" />
+        <path d="M8 16L15 9L22 16" />
+        <line x1="8" y1="20" x2="22" y2="20" />
+      </svg>
+      <span class="brandname">Openbook</span>
+    </a>
+
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#how">How it works</a>
+      <a href="#calculator">Calculator</a>
+      <a href="#rules">Rules of thumb</a>
+      <a href="#levers">Levers</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+
+    <div class="header-actions">
+      <button type="button" class="icon-btn" id="themeToggle" aria-label="Switch colour theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" /><path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6" /></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.2 8.2 0 1 0 10.2 10.2z" /></svg>
+      </button>
+      <a class="btn btn-primary btn-sm header-cta" href="#calculator">Run my numbers</a>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ===================== HERO ===================== -->
+  <section class="hero">
+    <div class="shell hero-single">
+      <div class="hero-copy">
+        <span class="eyebrow">Affordability, not approval</span>
+        <h1>Know what you can <em>actually</em> afford.</h1>
+        <p class="lede">
+          Every other calculator answers a lender's question: what's the biggest loan you'd
+          qualify for? Openbook answers yours — what can you buy and still recognise your life
+          afterwards. It starts from the money that actually lands in your bank account.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary btn-lg" href="#calculator">Run my numbers — free</a>
+          <a class="btn btn-ghost btn-lg" href="#how">See how it works</a>
+        </div>
+        <ul class="trust-row">
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 3v5.4c0 4.4-3 8.2-7.5 9.6-4.5-1.4-7.5-5.2-7.5-9.6V6z" /><path d="M9 12.2l2.2 2.2L15.4 10" /></svg>
+            Runs in your browser
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v12H4z" /><path d="M4 7l8 6 8-6" /><line x1="3" y1="20.5" x2="21" y2="3.5" /></svg>
+            No account, no email
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5v5l3 1.8" /></svg>
+            About four minutes
+          </li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===================== VALUE STRIP ===================== -->
+  <section class="strip">
+    <div class="shell strip-grid">
+      <article>
+        <span class="strip-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2.5" /><circle cx="12" cy="12" r="2.4" /></svg></span>
+        <h3>Take-home, not gross</h3>
+        <p>Federal brackets, your state's own rates, Social Security and Medicare, 401(k) and pre-tax deductions — all taken out before the maths starts.</p>
+      </article>
+      <article>
+        <span class="strip-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18" /><path d="M6 20V9l6-5 6 5v11" /><path d="M10 20v-5h4v5" /></svg></span>
+        <h3>Your life comes first</h3>
+        <p>Savings, debts and everything you already spend get subtracted <em>before</em> a house does. Whatever survives is your real housing budget.</p>
+      </article>
+      <article>
+        <span class="strip-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 3v5.4c0 4.4-3 8.2-7.5 9.6-4.5-1.4-7.5-5.2-7.5-9.6V6z" /><path d="M9 12.2l2.2 2.2L15.4 10" /></svg></span>
+        <h3>Nothing leaves this device</h3>
+        <p>There is no server, no sign-up and no lead form. Your numbers stay in this browser tab unless you choose to save them here.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ===================== HOW IT WORKS ===================== -->
+  <section class="section" id="how">
+    <div class="shell">
+      <header class="section-head">
+        <span class="eyebrow">How it works</span>
+        <h2>Three steps, no sales call</h2>
+        <p>The same arithmetic a careful friend would do on a napkin, done properly and in the open.</p>
+      </header>
+
+      <ol class="steps">
+        <li>
+          <span class="step-num">1</span>
+          <h3>Tell it what you earn</h3>
+          <p>Salary, filing status and state. Openbook works out federal, state and FICA tax and hands you the figure that actually hits your account each payday.</p>
+        </li>
+        <li>
+          <span class="step-num">2</span>
+          <h3>Tell it where that goes</h3>
+          <p>Savings, debt payments and the bills you already have. Tick any line off to ask "what if this were gone?" without deleting it.</p>
+        </li>
+        <li>
+          <span class="step-num">3</span>
+          <h3>See the house that fits</h3>
+          <p>Openbook sizes a home price around what's left — mortgage, property tax, insurance, PMI and HOA all included in the payment, not bolted on later — and never above the 28% of gross that the 28/36 rule allows for housing, whichever of the two is tighter.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ===================== CALCULATOR ===================== -->
+  <section class="section section-calc" id="calculator">
+    <div class="shell">
+      <header class="section-head">
+        <span class="eyebrow">The calculator</span>
+        <h2>Your numbers</h2>
+        <p>Everything updates as you type. Nothing is sent anywhere.</p>
+      </header>
+
+      <!--
+        One menu rather than a row of buttons: six actions, each with a line
+        saying what it does, and the calculator starts higher up the page.
+        Items ending in an ellipsis open a panel below; the rest act at once.
+      -->
+      <div class="toolbar">
+        <div class="toolbar-statuses">
+          <p class="toolbar-viewing" id="viewingStatus" hidden></p>
+          <p class="toolbar-status" id="saveStatus">Not saved yet — this page forgets everything when you close it.</p>
+        </div>
+        <div class="menu-wrap">
+          <button type="button" class="btn btn-primary btn-sm menu-trigger" id="btnMenu"
+                  aria-haspopup="menu" aria-expanded="false" aria-controls="actionMenu">Manage</button>
+
+          <div class="menu-list" id="actionMenu" role="menu" aria-labelledby="btnMenu" hidden>
+            <button type="button" role="menuitem" id="btnSave">
+              <span class="mi-name">Remember these numbers</span>
+              <span class="mi-desc">Keep them on this device, so they're here next time</span>
+            </button>
+            <button type="button" role="menuitem" id="btnViewsOpen">
+              <span class="mi-name">Saved views…</span>
+              <span class="mi-desc">Keep several scenarios side by side</span>
+            </button>
+            <hr />
+            <button type="button" role="menuitem" id="btnShare">
+              <span class="mi-name">Copy share code</span>
+              <span class="mi-desc">Send your numbers to someone as text</span>
+            </button>
+            <button type="button" role="menuitem" id="btnPasteOpen">
+              <span class="mi-name">Paste a code…</span>
+              <span class="mi-desc">Load numbers someone sent you</span>
+            </button>
+            <button type="button" role="menuitem" id="btnInviteOpen">
+              <span class="mi-name">Invite by text…</span>
+              <span class="mi-desc">Send someone a link — not your numbers</span>
+            </button>
+            <hr />
+            <button type="button" role="menuitem" id="btnReset">
+              <span class="mi-name">Start with empty fields</span>
+              <span class="mi-desc">Clear the example numbers and fill in your own</span>
+            </button>
+            <button type="button" role="menuitem" class="is-danger" id="btnClear">
+              <span class="mi-name">Delete saved data</span>
+              <span class="mi-desc">Remove the numbers and views stored on this device</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="drawer" id="viewsPanel" hidden>
+        <div class="drawer-block">
+          <label class="drawer-title" for="viewName">Save these numbers as a named view</label>
+          <p class="hint">Keep several side by side — as things are, without the car loan, if the salary changes. This device only; nothing is uploaded.</p>
+          <div class="load-row">
+            <input type="text" id="viewName" placeholder="e.g. Current plan" maxlength="60" autocomplete="off" />
+            <button type="button" class="btn btn-primary btn-sm" id="btnSaveView">Save view</button>
+          </div>
+          <div class="views-list-head">
+            <p class="hint" id="viewsHint"></p>
+            <button type="button" class="btn btn-ghost btn-sm" id="btnShareAllViews" hidden>Share all views…</button>
+          </div>
+          <div id="viewsList"></div>
+        </div>
+
+        <!--
+          Side-by-side ledgers. The price a view works out to is already on its
+          row above; this is for the question that figure can't answer — which
+          line moved, and by how much.
+        -->
+        <div class="drawer-block cmp" id="comparePanel" hidden>
+          <div class="cmp-head">
+            <p class="drawer-title" id="compareTitle">Compare their ledgers</p>
+            <button type="button" class="btn btn-ghost btn-sm" id="btnCompareExpand" aria-expanded="false" hidden>Expand all</button>
+          </div>
+          <p class="hint" id="compareHint"></p>
+          <label class="cmp-current" id="cmpCurrentWrap" hidden>
+            <input type="checkbox" id="cmpCurrent" />
+            <span>Include the numbers on screen now</span>
+          </label>
+          <div class="cmp-scroll" id="compareTable"></div>
+        </div>
+      </div>
+
+      <!--
+        Two panels that exist because window.confirm() and window.prompt() are
+        blocked outright in a sandboxed frame — the preview, an embed, some
+        in-app browsers. A blocked confirm reads as "no", so anything behind one
+        silently did nothing.
+      -->
+      <div class="drawer" id="confirmPanel" hidden>
+        <div class="drawer-block">
+          <p class="drawer-title" id="confirmTitle">Are you sure?</p>
+          <p class="hint" id="confirmText"></p>
+          <div class="confirm-actions">
+            <button type="button" class="btn btn-sm btn-danger-solid" id="btnConfirmYes">Delete</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btnConfirmNo">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="drawer" id="sharePanel" hidden>
+        <div class="drawer-block">
+          <label class="drawer-title" for="shareCodeOut">Your share code</label>
+          <p class="hint" id="shareHint"></p>
+          <textarea id="shareCodeOut" class="share-out" rows="3" readonly spellcheck="false"></textarea>
+        </div>
+      </div>
+
+      <div class="drawer" id="pastePanel" hidden>
+        <div class="drawer-block">
+          <label class="drawer-title" for="loadCodeInput">Paste the code you were sent</label>
+          <p class="hint">This replaces the numbers on this page in your browser — it doesn't touch theirs.</p>
+          <div class="load-row">
+            <input type="text" id="loadCodeInput" placeholder="Paste the code" autocomplete="off" spellcheck="false" />
+            <button type="button" class="btn btn-primary btn-sm" id="btnLoadCode">Load</button>
+          </div>
+        </div>
+      </div>
+
+      <!--
+        An invite is a different act from sharing your numbers, and the page
+        says so twice: once here, once in the message itself. It opens the
+        visitor's own Messages app with a link and nothing else — your salary,
+        debts and everything else in this form stay exactly where they are,
+        on this device, unless you separately use "Copy share code".
+      -->
+      <div class="drawer" id="invitePanel" hidden>
+        <div class="drawer-block">
+          <label class="drawer-title" for="inviteBody">Invite someone to try Openbook</label>
+          <p class="hint">Opens your own Messages app with a link, ready to send. <strong>Your numbers are never
+            part of this</strong> — it's the same page you started from, empty for them. Want to send your actual
+            numbers instead? Use "Copy share code" or a saved view's "Share" button.</p>
+
+          <div class="field">
+            <label for="invitePhone">Their number <span class="optional">optional</span></label>
+            <input type="tel" id="invitePhone" inputmode="tel" autocomplete="tel" placeholder="Leave blank to choose from Messages" />
+          </div>
+
+          <div class="field">
+            <label for="inviteBody">Message</label>
+            <textarea id="inviteBody" rows="3" spellcheck="false"></textarea>
+          </div>
+
+          <a id="btnInviteSend" class="btn btn-primary btn-sm" href="sms:">Open in Messages</a>
+        </div>
+      </div>
+
+      <div id="bannerSlot" aria-live="polite"></div>
+
+      <div class="calc-grid">
+        <!-- ---------- INPUTS ---------- -->
+        <div class="calc-inputs">
+          <div class="tabs" role="tablist" aria-label="Calculator sections">
+            <button type="button" role="tab" id="tab-income" aria-controls="panel-income" aria-selected="true" class="tab is-active">
+              <span class="tab-index">1</span> Income
+            </button>
+            <button type="button" role="tab" id="tab-outgoings" aria-controls="panel-outgoings" aria-selected="false" class="tab" tabindex="-1">
+              <span class="tab-index">2</span> Money out
+            </button>
+            <button type="button" role="tab" id="tab-home" aria-controls="panel-home" aria-selected="false" class="tab" tabindex="-1">
+              <span class="tab-index">3</span> Home &amp; loan
+            </button>
+          </div>
+
+          <!-- ---- Panel 1: income ---- -->
+          <div class="panel" role="tabpanel" id="panel-income" aria-labelledby="tab-income" tabindex="0">
+            <div class="card">
+              <h3 class="card-title">
+                <span class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2.5" /><circle cx="12" cy="12" r="2.4" /></svg></span>
+                What you earn
+              </h3>
+              <p class="card-sub">Your pay before tax and deductions. What comes out of it is the next step.</p>
+
+              <div class="field">
+                <label for="salary">Annual gross salary</label>
+                <div class="adorned">
+                  <span class="prefix">$</span>
+                  <input type="text" inputmode="numeric" id="salary" autocomplete="off" />
+                </div>
+              </div>
+
+              <div class="field-row">
+                <div class="field">
+                  <label for="filing">Filing status</label>
+                  <select id="filing">
+                    <option value="single">Single</option>
+                    <option value="mfj">Married filing jointly</option>
+                    <option value="hoh">Head of household</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="payfreq">How often you're paid</label>
+                  <select id="payfreq">
+                    <option value="weekly">Weekly</option>
+                    <option value="biweekly">Every 2 weeks</option>
+                    <option value="semimonthly">Twice a month</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field-row">
+                <div class="field">
+                  <label for="state">State</label>
+                  <select id="state"></select>
+                </div>
+                <div class="field">
+                  <label for="city">City <span class="optional">optional</span></label>
+                  <input type="text" id="city" placeholder="Where you're looking" autocomplete="off" />
+                </div>
+              </div>
+              <p class="hint">Your state sets the income tax, property tax and insurance estimates used throughout.</p>
+            </div>
+
+            <div class="panel-nav">
+              <span class="panel-step">Step 1 of 3</span>
+              <button type="button" class="btn btn-primary btn-sm" data-goto-tab="tab-outgoings">Next: money out →</button>
+            </div>
+          </div>
+
+          <!-- ---- Panel 2: outgoings ---- -->
+          <div class="panel" role="tabpanel" id="panel-outgoings" aria-labelledby="tab-outgoings" tabindex="0" hidden>
+            <div class="card">
+              <h3 class="card-title">
+                <span class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16l5-5 4 3 6-7" /><path d="M15 6h4v4" /></svg></span>
+                Savings <span class="badge">per month</span>
+              </h3>
+              <p class="card-sub">Money you set aside before a house gets a look-in. Every figure here is monthly.</p>
+
+              <!--
+                The 401(k) lives here rather than under Income: a contribution is
+                money going out, not money coming in, and this card's total has
+                always counted it.
+              -->
+              <div class="k401-row">
+                <div class="k401-label">401(k) contribution</div>
+                <div class="k401-controls">
+                  <div class="segmented" id="seg401kMode" role="group" aria-label="401(k) contribution unit"></div>
+                  <div class="k401-value" id="k401Value"></div>
+                  <div class="segmented" id="seg401kType" role="group" aria-label="401(k) type"></div>
+                </div>
+              </div>
+              <p class="hint k401-hint">
+                In <strong>%</strong> this is a share of your monthly <em>gross</em> pay; in <strong>$</strong> it's a flat monthly amount.
+                Traditional lowers your taxable income, Roth doesn't — but either way it's gone before payday.
+              </p>
+
+              <p class="group-label">Everything else you set aside</p>
+              <div class="line-list" id="savingsList"></div>
+              <button type="button" class="add-row" id="addSavings">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                Add a savings item
+              </button>
+              <p class="hint">
+                Rows in <strong>%</strong> are a share of monthly take-home pay. Mark a flat-dollar row
+                <strong>pre-tax</strong> (an HSA through payroll, say) and it lowers your taxable income instead of your take-home.
+              </p>
+              <div class="card-total"><span>Total monthly savings</span><span id="savingsTotal">$0</span></div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">
+                <span class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2.5" /><line x1="3" y1="10.5" x2="21" y2="10.5" /></svg></span>
+                Debts <span class="badge">per month</span>
+              </h3>
+              <p class="card-sub">Minimum monthly payments — car loans, student loans, card minimums, personal loans, alimony or child support. Insurance premiums aren't debt; they belong below.</p>
+              <div class="line-list" id="debtsList"></div>
+              <button type="button" class="add-row" id="addDebt">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                Add a debt
+              </button>
+              <p class="hint">Untick a row to keep it in the list but drop it from every total — the quickest way to see life after a car loan ends.</p>
+              <div class="card-total"><span>Total monthly debt</span><span id="debtsTotal">$0</span></div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">
+                <span class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><line x1="8.5" y1="8.5" x2="15.5" y2="8.5" /><line x1="8.5" y1="12.5" x2="15.5" y2="12.5" /></svg></span>
+                Everything else <span class="badge">per month</span>
+              </h3>
+              <p class="card-sub">Utilities, groceries, insurance, subscriptions — the rest of what leaves your account each month.</p>
+              <div class="line-list" id="expensesList"></div>
+              <button type="button" class="add-row" id="addExpense">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                Add an expense
+              </button>
+              <div class="card-total"><span>Total monthly expenses</span><span id="expensesTotal">$0</span></div>
+            </div>
+
+            <div class="panel-nav">
+              <button type="button" class="btn btn-ghost btn-sm" data-goto-tab="tab-income">← Income</button>
+              <span class="panel-step">Step 2 of 3</span>
+              <button type="button" class="btn btn-primary btn-sm" data-goto-tab="tab-home">Next: home &amp; loan →</button>
+            </div>
+          </div>
+
+          <!-- ---- Panel 3: home & loan ---- -->
+          <div class="panel" role="tabpanel" id="panel-home" aria-labelledby="tab-home" tabindex="0" hidden>
+            <div class="card">
+              <h3 class="card-title">
+                <span class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5L12 4l8 7.5" /><path d="M6 10v10h12V10" /></svg></span>
+                Home &amp; loan
+              </h3>
+              <p class="card-sub">Enough to estimate your rate, PMI, property tax and insurance.</p>
+
+              <div class="field-row">
+                <div class="field">
+                  <label for="credit">Credit score</label>
+                  <select id="credit"></select>
+                  <p class="hint" id="creditHint"></p>
+                </div>
+                <div class="field">
+                  <label id="termLabel">Loan term</label>
+                  <div class="segmented segmented-wide" id="segTerm" role="group" aria-labelledby="termLabel"></div>
+                </div>
+              </div>
+
+              <div class="field">
+                <label id="firstHomeLabel">Is this your first home?</label>
+                <div class="segmented segmented-wide" id="segFirstHome" role="group" aria-labelledby="firstHomeLabel"></div>
+                <p class="hint" id="firstHomeHint"></p>
+              </div>
+
+              <div class="field-row">
+                <div class="field">
+                  <label for="downpayment">Down payment</label>
+                  <div class="adorned"><span class="prefix">$</span><input type="text" inputmode="numeric" id="downpayment" autocomplete="off" /></div>
+                  <p class="hint" id="downPctHint"></p>
+                </div>
+                <div class="field">
+                  <label for="hoa">HOA dues</label>
+                  <div class="adorned has-suffix"><span class="prefix">$</span><input type="text" inputmode="numeric" id="hoa" autocomplete="off" /><span class="suffix">/mo</span></div>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="emergencyFund">Emergency fund already saved <span class="optional">optional</span></label>
+                <div class="adorned"><span class="prefix">$</span><input type="text" inputmode="numeric" id="emergencyFund" autocomplete="off" placeholder="0" /></div>
+                <p class="hint">Not part of the affordability maths — it's only used by the readiness checks below, which every source agrees come before the payment.</p>
+              </div>
+
+              <div class="field">
+                <label id="insLabel">Homeowners insurance</label>
+                <div class="segmented segmented-wide" id="segInsMode" role="group" aria-labelledby="insLabel"></div>
+                <div id="insManualWrap" hidden>
+                  <div class="adorned has-suffix field-followup">
+                    <span class="prefix">$</span><input type="text" inputmode="numeric" id="insManual" autocomplete="off" /><span class="suffix">/mo</span>
+                  </div>
+                </div>
+                <p class="hint" id="insHint"></p>
+              </div>
+
+              <!--
+                Affiliate slot. Stays hidden until a URL is set for it in
+                PARTNER_LINKS (assets/js/app.js) — a paid-link disclosure on a
+                link that earns nothing would be its own small untruth.
+              -->
+              <aside class="partner" data-partner="rates" hidden>
+                <div class="partner-row">
+                  <span class="partner-tag">Paid link</span>
+                  <span class="partner-text">Ready for real numbers? Compare live rates from vetted lenders.</span>
+                  <a class="partner-link" href="#" target="_blank" rel="sponsored noopener noreferrer">Compare rates →</a>
+                </div>
+                <p class="partner-disclosure">Openbook earns a commission if you use this link, at no cost to you. It has no effect on any number on this page, and none of your figures are shared.</p>
+              </aside>
+            </div>
+
+            <div class="panel-nav">
+              <button type="button" class="btn btn-ghost btn-sm" data-goto-tab="tab-outgoings">← Money out</button>
+              <span class="panel-step">Step 3 of 3</span>
+              <a class="btn btn-primary btn-sm" href="#ledger">See the full ledger →</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---------- RESULTS ---------- -->
+        <aside class="calc-results" id="results" aria-label="Your results">
+
+          <!--
+            Shown until all three steps have been opened. Landing straight on a
+            finished-looking total makes the remaining steps read as decoration,
+            and anchors you on a number computed from numbers you haven't
+            entered yet.
+          -->
+          <div class="result-card gate-card show-until-complete" id="stepGate">
+            <p class="result-eyebrow">Before the numbers mean anything</p>
+            <p class="gate-heading" id="gateHeading">Three quick steps</p>
+            <ol class="gate-steps" id="gateSteps"></ol>
+            <button type="button" class="btn btn-primary btn-sm" id="gateNext">Start with your income</button>
+            <p class="result-sub">The figures appear here once you've been through all three. Nothing is sent anywhere.</p>
+          </div>
+
+          <div class="result-card viz-root reveal-on-complete">
+            <p class="result-eyebrow">Estimated home price you can afford</p>
+            <p class="result-hero" id="homePrice">$0</p>
+            <p class="result-sub" id="homePriceSub"></p>
+
+            <div class="payment-viz">
+              <div class="payment-head">
+                <span>Monthly payment</span>
+                <span class="payment-total" id="paymentTotal">$0</span>
+              </div>
+              <div class="stack-bar" id="paymentBar" role="img" aria-label="Monthly payment composition"></div>
+              <ul class="legend" id="paymentLegend"></ul>
+            </div>
+
+            <dl class="stat-list">
+              <div class="stat"><dt>Loan amount</dt><dd id="outLoan">$0</dd></div>
+              <div class="stat"><dt>Rate</dt><dd id="outRate">—</dd></div>
+              <div class="stat"><dt>Down payment</dt><dd id="outDown">$0</dd></div>
+              <!--
+                Asked directly: "is this accounting for closing costs?" The
+                honest answer is that it can't be, the same way the mortgage
+                rate can't change the price of milk: closing costs are a
+                one-time cash requirement, not a monthly one, so they have no
+                effect on what a monthly budget can afford. What was missing
+                was making that visible rather than making the page pretend
+                otherwise — this stat, and the fuller breakdown two cards
+                down, both come from cashToClose() in calc.js, computed for
+                this exact price.
+
+                Follow-up asked next: don't closing costs usually get added
+                to the loan, which would lower the affordable price? Not on a
+                standard purchase — that's routine on a refinance, but a
+                purchase is financed differently (seller concession or a
+                lender credit at a higher rate, not a bigger loan balance);
+                see the FAQ entry below this card for the full answer and the
+                narrow FHA/VA/USDA exceptions this calculator doesn't model.
+              -->
+              <div class="stat"><dt>Cash to close</dt><dd id="outCash">$0</dd></div>
+            </dl>
+            <p class="result-sub" id="outCashNote"></p>
+
+            <!-- Affiliate slot — see the note on the rates slot above. -->
+            <aside class="partner partner-quiet" data-partner="insurance" hidden>
+              <div class="partner-row">
+                <span class="partner-tag">Paid link</span>
+                <span class="partner-text">Lock this number in — compare homeowners insurance quotes.</span>
+                <a class="partner-link" href="#" target="_blank" rel="sponsored noopener noreferrer">Get quotes →</a>
+              </div>
+              <p class="partner-disclosure">Openbook earns a commission if you use this link, at no cost to you. It has no effect on any number on this page, and none of your figures are shared.</p>
+            </aside>
+          </div>
+
+          <div class="result-card result-card-soft reveal-on-complete">
+            <p class="result-eyebrow" id="takeHomeLabel">Take-home pay</p>
+            <p class="result-figure" id="takeHomeNumber">$0</p>
+            <div class="divider"></div>
+            <p class="result-eyebrow">Monthly housing budget</p>
+            <p class="result-figure" id="housingBudget">$0</p>
+            <p class="result-sub" id="housingBudgetNote"></p>
+          </div>
+
+          <!--
+            The down payment used to be the only cash the page modelled, which
+            quietly implied you can put every dollar you've saved into it. The
+            escrow figures here are this buyer's own tax and insurance, not an
+            average — the calculator already knows both.
+          -->
+          <div class="result-card result-card-soft reveal-on-complete">
+            <p class="result-eyebrow">Cash you'd need at closing</p>
+            <p class="result-figure" id="cashTotal">$0</p>
+            <dl class="stat-list cash-list">
+              <div class="stat"><dt>Down payment</dt><dd id="cashDown">$0</dd></div>
+              <div class="stat"><dt id="cashFeesLabel">Fees</dt><dd id="cashFees">$0</dd></div>
+              <div class="stat"><dt>Escrow &amp; prepaid interest</dt><dd id="cashEscrow">$0</dd></div>
+            </dl>
+            <p class="result-sub" id="cashNote"></p>
+          </div>
+
+          <a class="result-card result-card-link reveal-on-complete" href="#rules" id="rulesSummary">
+            <span class="result-eyebrow">Against the published rules</span>
+            <span class="rules-score" id="rulesScore">—</span>
+            <span class="result-sub" id="rulesSummarySub">Run against your numbers →</span>
+          </a>
+
+          <!--
+            Saving lived only in the Manage menu at the top, which you have to
+            know about and scroll back to. This is where you are when you
+            finish, so the offer is here.
+          -->
+          <div class="result-card save-card reveal-on-complete">
+            <p class="result-eyebrow">Keep these numbers</p>
+            <p class="save-card-sub" id="saveCardSub">This page forgets everything when you close it. Saving keeps them on this device — nothing is uploaded.</p>
+            <p class="toolbar-viewing" id="viewingStatusEnd" hidden></p>
+            <div class="save-card-actions">
+              <button type="button" class="btn btn-primary btn-sm" id="btnSaveEnd">Save to this device</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btnSaveViewEnd">Save as a named view…</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btnShareEnd">Copy share code</button>
+            </div>
+            <p class="hint" id="saveStatusEnd"></p>
+          </div>
+        </aside>
+      </div>
+
+      <!-- ---------- LEDGER ---------- -->
+      <div class="card ledger-card reveal-on-complete" id="ledger">
+        <h3 class="card-title">
+          <span class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="14" y2="12" /><line x1="4" y1="17" x2="18" y2="17" /></svg></span>
+          Where every dollar goes <span class="badge">per month</span>
+        </h3>
+        <p class="card-sub">Every dollar of your gross pay, from the first one: tax, then what your employer holds back, then what you spend. This is derived live — it isn't separate data to fill in.</p>
+
+        <div class="ledger-income">
+          <span>Monthly gross pay</span>
+          <span id="ledgerGross">$0</span>
+        </div>
+
+        <!--
+          The two rows above take-home pay are the ones nobody chooses to spend.
+          They used to sit in a separate "Tax breakdown" card below the ledger,
+          which meant a card called "Where every dollar goes" started three
+          thousand dollars in.
+        -->
+        <p class="group-label">Before it reaches you <span class="group-label-note">— open a row to see what's inside</span></p>
+        <div id="ledgerPreRows"></div>
+
+        <div class="ledger-subtotal">
+          <span>Monthly take-home pay</span>
+          <span id="ledgerIncome">$0</span>
+        </div>
+        <p class="hint" id="ledgerIncomeHint"></p>
+
+        <p class="group-label">Debits <span class="group-label-note">— open a row to see what's inside</span></p>
+        <div id="ledgerRows"></div>
+
+        <div class="field price-mode-field">
+          <label id="priceModeLabel">Home price used in the housing row</label>
+          <div class="segmented segmented-wide" id="segPriceMode" role="group" aria-labelledby="priceModeLabel"></div>
+          <div id="testPriceWrap" hidden>
+            <div class="adorned field-followup"><span class="prefix">$</span><input type="text" inputmode="numeric" id="testPrice" autocomplete="off" /></div>
+            <p class="hint">Try a specific asking price and watch what it does to the bottom line.</p>
+          </div>
+        </div>
+
+        <div class="card-total"><span>Total monthly debits</span><span id="ledgerDebits">$0</span></div>
+
+        <div class="divider"></div>
+
+        <div class="ledger-net" id="ledgerNetRow">
+          <span>Unallocated income</span>
+          <span id="ledgerNet">$0</span>
+        </div>
+        <p class="hint" id="ledgerNetHint"></p>
+      </div>
+
+      <p class="disclaimer">
+        State income tax is estimated from each state's published rates or brackets, applied to the same income
+        figure as the federal calculation — it doesn't model a state's own deductions, exemptions or credits, and a
+        few smaller states use a simplified version of their real brackets. Local and city income tax (NYC, for
+        instance) isn't included. Mortgage rate, PMI, property tax and insurance are broad national estimates by
+        credit tier and state, not a quote; a lender will confirm the real figures. Rates were last checked against
+        Freddie Mac's weekly survey in <span id="ratesAsOf">—</span>. Property tax is aimed at what a
+        <em>buyer</em> pays once the home is reassessed at the price paid, which in states that cap assessment
+        growth — California above all — is well above the published average across people who already own.
+        Openbook sizes a home price around your budget, not the maximum a lender might approve.
+      </p>
+    </div>
+  </section>
+
+  <!-- ===================== RULES OF THUMB ===================== -->
+  <section class="section section-rules" id="rules">
+    <div class="shell">
+      <header class="section-head">
+        <span class="eyebrow">Rules of thumb</span>
+        <h2>How your plan measures up</h2>
+        <p>The best-known guidance, run against your own numbers. They disagree with each other — about whether to measure gross or take-home, and over how many years — and seeing exactly where they part company is more useful than picking one.</p>
+      </header>
+
+      <p class="gate-notice show-until-complete">Finish the three steps in the calculator above and your own figures appear here, measured against each rule.</p>
+
+      <p class="rules-verdict reveal-on-complete" id="rulesVerdict">—</p>
+
+      <figure class="viz-root rules-chart reveal-on-complete">
+        <figcaption class="rules-caption">
+          <span>Most expensive home each rule allows</span>
+          <span class="rules-key">
+            <span class="key-item"><span class="swatch swatch-openbook" aria-hidden="true"></span> Your paycheck</span>
+            <span class="key-item"><span class="swatch swatch-lender" aria-hidden="true"></span> Published rule</span>
+            <span class="key-item"><span class="swatch swatch-ceiling" aria-hidden="true"></span> Warning line</span>
+          </span>
+        </figcaption>
+        <ol class="rule-rows" id="ruleRows"></ol>
+      </figure>
+
+      <div class="readiness reveal-on-complete">
+        <h3>What comes before the payment</h3>
+        <p class="readiness-sub">Every source here spends more time on what comes before the mortgage than on the mortgage. Openbook checks what it can see.</p>
+        <ul class="readiness-list" id="readinessList"></ul>
+      </div>
+
+      <p class="disclaimer">
+        Each rule above is a summary of guidance its source publishes. Openbook is not affiliated with, endorsed by
+        or connected to Ramsey Solutions, The Money Guy Show, or the U.S. Department of Housing and Urban
+        Development — their names appear because their guidance is worth measuring against, and the links go to
+        their own words. Summaries lose nuance, so follow a link before you act on one. Nothing here is financial
+        advice.
+      </p>
+    </div>
+  </section>
+
+  <!-- ===================== LEVERS ===================== -->
+  <section class="section section-levers" id="levers">
+    <div class="shell">
+      <header class="section-head">
+        <span class="eyebrow">What to do about it</span>
+        <h2>Where the leverage is</h2>
+        <p>Not advice — arithmetic. Each line is the same calculation run again with one thing changed, priced in the only unit that settles the argument: dollars of house, and dollars a month.</p>
+      </header>
+
+      <p class="gate-notice show-until-complete">Finish the three steps in the calculator above and the levers worth pulling — with what each one is worth — appear here.</p>
+
+      <ol class="lever-list reveal-on-complete" id="leverList"></ol>
+
+      <p class="disclaimer reveal-on-complete" id="leverNote"></p>
+    </div>
+  </section>
+
+  <!-- ===================== DIFFERENCE ===================== -->
+  <section class="section section-alt" id="difference">
+    <div class="shell">
+      <header class="section-head">
+        <span class="eyebrow">Why it's different</span>
+        <h2>The gap between approved and affordable</h2>
+        <p>A lender measures the payment against your <em>gross</em> pay and the debts on your credit report. It never sees your 401(k), your groceries, your childcare or the tax you actually pay.</p>
+      </header>
+
+      <div class="compare-table">
+        <div class="compare-col">
+          <h3>A typical calculator</h3>
+          <ul class="tick-list is-muted">
+            <li><span class="tick tick-no" aria-hidden="true">–</span> Starts from gross salary</li>
+            <li><span class="tick tick-no" aria-hidden="true">–</span> Counts only the debts on your credit report</li>
+            <li><span class="tick tick-no" aria-hidden="true">–</span> Quotes 28% / 36% as if a lender enforced it</li>
+            <li><span class="tick tick-no" aria-hidden="true">–</span> Property tax and insurance as national averages</li>
+            <li><span class="tick tick-no" aria-hidden="true">–</span> Usually wants your email first</li>
+          </ul>
+        </div>
+        <div class="compare-col is-featured">
+          <h3>Openbook</h3>
+          <ul class="tick-list">
+            <li><span class="tick" aria-hidden="true">✓</span> Starts from take-home pay, after real tax</li>
+            <li><span class="tick" aria-hidden="true">✓</span> Counts savings, childcare, subscriptions — anything you list</li>
+            <li><span class="tick" aria-hidden="true">✓</span> Sizes the house around what's genuinely left</li>
+            <li><span class="tick" aria-hidden="true">✓</span> Property tax and insurance by your state</li>
+            <li><span class="tick" aria-hidden="true">✓</span> No account, no email, no server</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FAQ ===================== -->
+  <section class="section" id="faq">
+    <div class="shell shell-narrow">
+      <header class="section-head">
+        <span class="eyebrow">Questions</span>
+        <h2>The things people ask</h2>
+      </header>
+
+      <div class="faq">
+        <details>
+          <summary>Is my financial information sent anywhere?</summary>
+          <div class="details-body"><p>No. There's no back end to send it to. The whole calculation runs in JavaScript in your browser tab. "Save to this device" writes to your browser's own local storage, which never leaves your machine, and "Clear saved" deletes it.</p></div>
+        </details>
+        <details>
+          <summary>Your percentages are of take-home. Isn't the 28/36 rule 28%?</summary>
+          <div class="details-body"><p>It is, but it's 28% of <em>gross</em>, and the share Openbook leads with is of take-home pay. Take-home is the smaller number, so the same payment looks like a bigger percentage of it. Three ratios are in play and only two of them are the rule: housing ÷ take-home, housing ÷ gross (what the 28 measures, the "front-end" ratio), and housing plus every other debt ÷ gross (what the 36 measures, the "back-end" ratio). On the example household those are 36%, 24% and 33% — so it clears the rule on both counts, even though the first figure is the one that catches your eye. The rules-of-thumb section below prices each rule out against your own numbers, so you can check them rather than take our word for it.</p></div>
+        </details>
+        <details>
+          <summary>Why is your number lower than my pre-approval?</summary>
+          <div class="details-body"><p>Because a pre-approval is a ceiling, not a recommendation, and the ceiling is higher than most people expect. A conventional loan applies no cap at all on the housing share of your income — the 28% figure you may have read is advice, not a rule — and total debt-to-income can run to 45%, or 50% through Fannie Mae's automated underwriter, or 57% on an FHA loan with strong compensating factors. That calculation sees gross pay and the debts on your credit report. It doesn't know about your 401(k), your health premiums, your childcare or the tax you actually pay. Openbook subtracts all of it first, which is why the number is smaller — and why it's the one you can live in.</p></div>
+        </details>
+        <details>
+          <summary>Ramsey, The Money Guy, the 28/36 rule — which one should I follow?</summary>
+          <div class="details-body"><p>They're measuring different things, which is why they disagree. Ramsey's 25% is of <em>take-home</em> pay and assumes a 15-year loan, so it lands lowest by some distance. The Money Guy's 25% is of <em>gross</em> income. The 28/36 rule is also gross, and despite how often it's quoted it's advice — no lender enforces it. Two of the lines aren't advice at all: the federal cost-burden threshold at 30% of gross is a statistical marker, and the approval limit is simply the most a lender will lend you. Openbook's own number is none of the above: it's your take-home pay minus the things you actually spend it on. Run them all, see where yours falls, and treat the rules you miss as questions rather than verdicts — and the ceilings you pass as warnings, not permission.</p></div>
+        </details>
+        <details>
+          <summary>Why is Ramsey's number so much lower than everything else?</summary>
+          <div class="details-body"><p>Two reasons compounding. First, 25% of take-home pay is a much smaller figure than 25% of gross — tax alone is usually a fifth to a third of the difference. Second, the rule specifies a 15-year fixed mortgage, and a 15-year payment is roughly 35% higher than a 30-year one on the same loan. Openbook prices that line on 15 years because that's what the rule says; pricing it on 30 would be quoting the number without the condition attached to it.</p></div>
+        </details>
+        <details>
+          <summary>How accurate is the tax calculation?</summary>
+          <div class="details-body"><p>Federal tax uses the published marginal brackets and standard deduction for your filing status, plus Social Security and Medicare including the additional Medicare surtax. State tax uses each state's own published rate or brackets, applied to the same taxable-income base — it doesn't model state-specific deductions or credits, and local income tax isn't included. Treat it as a solid estimate, not a return.</p></div>
+        </details>
+        <details>
+          <summary>Where do the rate, PMI and insurance figures come from?</summary>
+          <div class="details-body"><p>They're broad national estimates by credit tier, loan term and state — the kind of figures that get you in the right neighbourhood. PMI steps up at the usual loan-to-value cutoffs and scales with your credit tier. If you have a real quote, switch insurance to "I know my rate" and enter it.</p></div>
+        </details>
+        <details>
+          <summary>Don't closing costs usually get added to the loan, lowering what I can afford?</summary>
+          <div class="details-body"><p>On a refinance, yes, routinely — but this is a purchase calculator, and a purchase is different. On a conventional purchase loan, which is what these figures model, closing costs aren't added to the loan balance; you either bring cash for them or negotiate around them, typically through a seller concession (the seller credits some of the price back at closing) or a lender credit (the lender pays them in exchange for a slightly higher rate, which lowers your affordable price the normal way — through the rate the ledger already uses, not through a bigger loan). FHA and VA purchase loans allow rolling in a narrow, named cost — FHA's upfront mortgage insurance premium, VA's funding fee — and USDA loans can fold costs in only when the home appraises above the price, neither of which this calculator assumes. So "Cash to close" staying separate from the price above isn't an oversight; it's the accurate shape of a standard purchase, where the two really are different pools of money.</p></div>
+        </details>
+        <details>
+          <summary>Can I save more than one scenario?</summary>
+          <div class="details-body"><p>Yes — "Saved views" keeps a named library of them. Save the numbers as they are now, change something, save that under another name, and switch between them in a click. The list shows the price each view works out to, and ticking two or more puts their ledgers side by side, row for row, so you can see <em>which</em> line moved rather than just that the answer changed. Any row with parts inside it opens — tap Debts and you get each debt, one line per scenario, so "$730 against $280" becomes "the car loan, ticked off" — a scenario that buys less house because the 401(k) went up reads very differently from one that buys less because a car loan came back. With exactly two ticked you also get a difference column. Like everything else here they're stored on your device only, and "Delete saved data" removes them after telling you which ones it's about to delete.</p></div>
+        </details>
+        <details>
+          <summary>Can I share my numbers with a partner?</summary>
+          <div class="details-body"><p>Yes, at whichever scope fits. "Copy share code" in the Manage menu packs just the numbers on screen. Open "Saved views" and each one has its own "Share" button — that sends one scenario, and it lands on their screen <em>and</em> in their library at once, so they don't have to re-save it to compare it against their own. "Share all views" sends your whole library in one code. Every one of them pastes into "Paste a code" the same way; the code <em>is</em> the data, nothing is uploaded, and pasting a views-only code never touches what's on their screen — it only adds to their library.</p></div>
+        </details>
+        <details>
+          <summary>What does "Invite by text" actually send?</summary>
+          <div class="details-body"><p>A link, and nothing else. It opens your own phone's Messages app with a short message pre-filled — "here's a calculator worth trying," plus the page's plain address — and you send it exactly like any other text, from your own number, through your own carrier. It never includes your salary, your debts, or anything else in this form; the person who gets it opens the same empty page you started from. If you want to send your <em>actual</em> numbers, that's a different button — "Copy share code," or a saved view's "Share" — and it works over whatever channel you paste it into, texting included. The two are kept apart on purpose: an invite is safe to send to anyone without a second thought, and a share code is your real figures, worth sending only where you'd want anyone to have them.</p></div>
+        </details>
+        <details>
+          <summary>Is this financial advice?</summary>
+          <div class="details-body"><p>No. Openbook is a calculator, not an adviser, and it isn't affiliated with any lender, bank or insurer. It's a much better starting point than a gross-income rule of thumb, but talk to a real professional before you sign anything.</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SUPPORT ===================== -->
+  <section class="section section-support">
+    <div class="shell">
+      <div class="support-card">
+        <div>
+          <h2>Free, ad-free, and staying that way</h2>
+          <p>Openbook doesn't sell your data, because it never has it. If it helped you work out what you can actually afford, a small tip keeps it online and independent.</p>
+        </div>
+        <a class="btn btn-brass btn-lg" href="#" target="_blank" rel="noopener noreferrer">Buy me a coffee</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="shell footer-inner">
+    <div class="footer-brand">
+      <svg class="brandmark" width="26" height="26" viewBox="0 0 30 30" aria-hidden="true">
+        <rect width="30" height="30" rx="9" />
+        <path d="M8 16L15 9L22 16" />
+        <line x1="8" y1="20" x2="22" y2="20" />
+      </svg>
+      <span>Openbook</span>
+    </div>
+    <nav class="footer-links" aria-label="Footer">
+      <a href="#how">How it works</a>
+      <a href="#calculator">Calculator</a>
+      <a href="#rules">Rules of thumb</a>
+      <a href="#faq">FAQ</a>
+      <a href="#" target="_blank" rel="noopener noreferrer">Support</a>
+    </nav>
+  </div>
+  <div class="shell">
+    <p class="footer-fine">
+      Openbook is an independent tool and isn't affiliated with any lender, bank or insurer.
+      <span id="affiliateDisclosure" hidden>Links marked "Paid link" earn Openbook a commission if you use them,
+      at no cost to you, and never change the numbers shown on this page.</span>
+      Nothing here is financial, legal or tax advice.
+    </p>
+    <p class="footer-fine">© <span id="year">2026</span> Openbook.</p>
+  </div>
+</footer>
+
+<!-- Compact summary that follows you up the page on a phone. -->
+<div class="mobile-summary" id="mobileSummary" hidden>
+  <div class="mobile-summary-figures">
+    <span class="mobile-summary-label">You can afford</span>
+    <span class="mobile-summary-value" id="mobilePrice">$0</span>
+  </div>
+  <a class="btn btn-primary btn-sm" href="#results">See details</a>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script type="module" src="assets/js/app.js"></script>
+</body>
+</html>

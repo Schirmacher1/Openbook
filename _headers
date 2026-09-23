@@ -1,0 +1,13 @@
+# Response headers for hosts that read this file (Netlify, Cloudflare Pages).
+#
+# GitHub Pages ignores it — Pages cannot set custom headers at all. If you stay
+# on Pages, the <meta> CSP in index.html still applies; the three headers below
+# that a meta tag cannot deliver (frame-ancestors, X-Content-Type-Options,
+# Permissions-Policy) are the reason to put a CDN in front, or host elsewhere.
+
+/*
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=(), usb=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin
