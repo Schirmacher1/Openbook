@@ -45,6 +45,9 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
       # Stage only what the site needs, so tests, package.json and the README
       # aren't served from the public site.
@@ -54,6 +57,15 @@ jobs:
           cp index.html .nojekyll _headers _site/
           cp -r assets _site/
           echo "Staged:" && find _site -type f | sort
+
+      # GitHub Pages can't set cache-control headers (see README), so a stale
+      # browser or CDN cache can't be fixed by shortening one — the fix is
+      # that every file genuinely changes URL on every deploy. See
+      # scripts/cache-bust.mjs for why this matters for a multi-module app
+      # with no bundler: a deploy landing in the middle of nine independently
+      # cached files is a real, reported failure, not a hypothetical one.
+      - name: Cache-bust the built assets
+        run: node scripts/cache-bust.mjs _site
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
