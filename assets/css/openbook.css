@@ -1341,7 +1341,38 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
   font-size: 13px; font-weight: 600; color: var(--ink-soft);
   padding: 0 8px 0 2px; cursor: pointer; user-select: none;
 }
-.view-compare input { width: 16px; height: 16px; accent-color: var(--accent-fill); cursor: pointer; }
+/*
+ * A plain `accent-color` checkbox looked right in every browser this was
+ * tested in during development, then showed up solid black on a Samsung
+ * device — accent-color support (or its interaction with the device's own
+ * dark theme forcing native form controls to a system colour) isn't
+ * reliable enough to be the only styling. Built as a fully custom box
+ * instead, so its colour comes from this stylesheet in every browser, not
+ * from how well each one honours a CSS property still filling in.
+ */
+.view-compare input,
+.cmp-current input {
+  appearance: none; -webkit-appearance: none;
+  width: 18px; height: 18px; margin: 0; flex-shrink: 0;
+  display: inline-grid; place-content: center;
+  border: 1.5px solid var(--border); border-radius: 5px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.view-compare input:checked,
+.cmp-current input:checked {
+  background: var(--accent-fill); border-color: var(--accent-fill);
+}
+.view-compare input:checked::after,
+.cmp-current input:checked::after {
+  content: '';
+  width: 9px; height: 5px;
+  border-left: 2px solid var(--on-accent); border-bottom: 2px solid var(--on-accent);
+  transform: rotate(-45deg) translateY(-1px);
+}
+.view-compare input:focus-visible,
+.cmp-current input:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
 
 .cmp { margin-top: 16px; }
 .cmp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -1349,7 +1380,6 @@ input[type="text"].line-label:focus { border-color: var(--accent-fill); }
   display: inline-flex; align-items: center; gap: 8px; margin: 2px 0 12px;
   font-size: 13.5px; font-weight: 600; color: var(--ink-soft); cursor: pointer;
 }
-.cmp-current input { width: 16px; height: 16px; accent-color: var(--accent-fill); cursor: pointer; }
 
 /* The table scrolls sideways rather than squeezing four columns onto a phone;
    the row labels stay put so a figure never loses the row it belongs to. */
