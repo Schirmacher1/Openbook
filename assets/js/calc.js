@@ -201,9 +201,11 @@ export function isPmiTierLimited(price, model) {
  * saved can put $40,000 down. They can't: the fees and the escrow a lender
  * collects up front come out of the same pot, and they are not small.
  *
- * Nothing here changes the monthly payment, so nothing here changes what you
- * can afford month to month. It changes whether the purchase can happen at all,
- * which is a different question the page had not been asking.
+ * On its own this never changes the monthly payment, so it never changes what
+ * a paycheck can afford month to month — it changes whether the purchase can
+ * happen at all, which used to be a question this page didn't ask. Telling it
+ * how much cash there actually is (below, in solvePriceByCash()) turns that
+ * into a second, opt-in ceiling on the price itself.
  */
 export function cashToClose(payment, model) {
   const fees = payment.price * (CLOSING_FEE_PCT / 100);
@@ -214,6 +216,33 @@ export function cashToClose(payment, model) {
   const costs = fees + escrowTax + escrowInsurance + prepaidInterest;
 
   return { down, fees, escrowTax, escrowInsurance, prepaidInterest, costs, total: down + costs };
+}
+
+/**
+ * Largest home price whose cash to close fits the cash actually on hand. Same
+ * bisection shape as solvePrice(), for the same reason: cashToClose().total
+ * is non-strictly increasing in price at a fixed dollar down payment (fees
+ * and escrow scale with price; the down payment itself never needs more than
+ * it already takes), so it stays stable across the same PMI-tier steps.
+ *
+ * Below the down payment there is no loan and cashToClose() folds "down" back
+ * to the price itself (see its own comment) — a different, not particularly
+ * useful shape — so, like solvePrice(), this never searches below it. Returns
+ * 0 when even that floor costs more cash than there is, meaning no price is
+ * reachable with this down payment at all.
+ */
+export function solvePriceByCash(totalCash, model) {
+  const floor = model.downpayment;
+  if (cashToClose(model.paymentAt(floor), model).total > totalCash) return 0;
+  let lo = floor;
+  let hi = floor + 4_000_000;
+  while (cashToClose(model.paymentAt(hi), model).total <= totalCash && hi < 50_000_000) hi *= 2;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (cashToClose(model.paymentAt(mid), model).total <= totalCash) lo = mid;
+    else hi = mid;
+  }
+  return lo;
 }
 
 /* ---------------------------------------------------------------------------
@@ -283,7 +312,17 @@ export function compute(state) {
   const cappedByRule = leftover > ruleCap + 0.01;
 
   const model = housingModel(state);
-  const price = housingBudget > 0 ? solvePrice(housingBudget, model) : model.downpayment;
+  const budgetPrice = housingBudget > 0 ? solvePrice(housingBudget, model) : model.downpayment;
+
+  // Optional second ceiling: what the cash on hand actually covers at
+  // closing, not just what the paycheck covers monthly. Off (no cap at all)
+  // when totalCash hasn't been entered — null, not the very different real
+  // value zero — same as every other test on this page: it can only ever
+  // lower the price, never raise it past what the budget alone allows.
+  const usingCashLimit = state.totalCash != null;
+  const cashPrice = usingCashLimit ? solvePriceByCash(state.totalCash, model) : Infinity;
+  const price = usingCashLimit ? Math.min(budgetPrice, cashPrice) : budgetPrice;
+  const cappedByCash = usingCashLimit && cashPrice < budgetPrice - 0.01;
   const payment = model.paymentAt(price);
 
   // What a lender will actually approve. A conventional loan applies no front-end
@@ -361,7 +400,15 @@ export function compute(state) {
     model,
     price,
     payment,
-    pmiTierLimited: !usingTestPrice && !cappedByRule && housingBudget > 0 && unallocated > 1
+    // The payment-budget price on its own, and the cash-on-hand price
+    // (Infinity when no cash figure was entered, so it never binds) — kept
+    // separate from the min() of the two above so the interface can say
+    // which test actually drew the line.
+    budgetPrice,
+    cashPrice,
+    usingCashLimit,
+    cappedByCash,
+    pmiTierLimited: !usingTestPrice && !cappedByRule && !cappedByCash && housingBudget > 0 && unallocated > 1
       && isPmiTierLimited(price, model),
     approval: { housingBudget: approvalBudget, price: approvalPrice, payment: approvalPayment },
     rule28: { housingBudget: rule28Budget, price: rule28Price, payment: rule28Payment },

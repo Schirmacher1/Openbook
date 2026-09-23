@@ -133,6 +133,19 @@ test('a view running a what-if price is compared on that price', () => {
   assert.notEqual(Math.round(result.price), asking);
 });
 
+test('a view held back by its own cash figure is flagged, not silently priced lower', () => {
+  const budgetOnly = compute(createDefaultState());
+  const tightCash = entry('Tight on cash', (s) => {
+    s.totalCash = s.downpayment + 5000;
+  });
+  const table = compareLedgers([entry('Estimate'), tightCash]);
+
+  assert.equal(table.columns[0].cappedByCash, false);
+  assert.equal(table.columns[1].cappedByCash, true);
+  assert.ok(row(table, 'price').values[1] < budgetOnly.price,
+    'the cash-capped column must price lower than the unconstrained estimate');
+});
+
 test('the difference column only appears when a difference is unambiguous', () => {
   assert.equal(compareLedgers([entry('A')]).diffable, false);
   assert.equal(compareLedgers([entry('A'), entry('B')]).diffable, true);

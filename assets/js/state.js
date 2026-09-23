@@ -55,6 +55,10 @@ export function createDefaultState() {
     insManual: 120,
     priceTestMode: 'auto',
     testPrice: null,
+    // Optional, and unlike the emergency fund below, this one does feed the
+    // estimate: null means "not entered", read as no cash ceiling at all,
+    // rather than as the very real, very different number zero.
+    totalCash: null,
     // Optional: only the readiness checks use it, and they say so when it's blank.
     emergencyFund: 0,
     // Changes which branch of The Money Guy's 3/5/25 applies: a first home can go
@@ -85,7 +89,7 @@ export function newItem(kind, overrides = {}) {
 const PERSISTED_KEYS = [
   'salary', 'filing', 'payfreq', 'k401', 'savingsItems', 'debtItems', 'expenseItems',
   'credit', 'term', 'city', 'stateCode', 'downpayment', 'hoa', 'insMode', 'insManual',
-  'priceTestMode', 'testPrice', 'emergencyFund', 'firstHome'
+  'priceTestMode', 'testPrice', 'totalCash', 'emergencyFund', 'firstHome'
 ];
 
 export function serialize(state) {
@@ -187,6 +191,7 @@ export function hydrate(data) {
     insManual: num(raw.insManual, LIMITS.amount, base.insManual),
     priceTestMode: oneOf(raw.priceTestMode, ['auto', 'manual'], base.priceTestMode),
     testPrice: raw.testPrice == null ? null : num(raw.testPrice, LIMITS.price),
+    totalCash: raw.totalCash == null ? null : num(raw.totalCash, LIMITS.price),
     emergencyFund: num(raw.emergencyFund, LIMITS.salary, 0),
     firstHome: raw.firstHome !== false
   };

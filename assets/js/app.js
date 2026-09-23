@@ -1406,9 +1406,11 @@ function paint({ animate = false } = {}) {
   // entered, so the two can differ on purpose; this one never does.
   const estimateCash = cashToClose(result.payment, result.model);
   $('outCash').textContent = money(estimateCash.total);
-  $('outCashNote').textContent =
-    `${money(estimateCash.costs)} of that is fees and escrow on top of the down payment above — `
-    + 'a one-time cost to get to the closing table, not a monthly one, so it never changes the price shown here. Full breakdown below.';
+  $('outCashNote').textContent = result.cappedByCash
+    ? `${money(estimateCash.costs)} of that is fees and escrow on top of the down payment above — a one-time cost to get to the closing table. `
+      + `It's why the price above is held to ${money(result.price)} rather than the ${money(result.budgetPrice)} your monthly budget alone would allow: that much house would need more cash to close than you said you have. Full breakdown below.`
+    : `${money(estimateCash.costs)} of that is fees and escrow on top of the down payment above — `
+      + 'a one-time cost to get to the closing table, not a monthly one, so by default it never changes the price shown here — enter how much cash you have above to change that. Full breakdown below.';
 
   // --- take-home & budget ---
   $('takeHomeLabel').textContent = result.freq.label;
@@ -1429,6 +1431,12 @@ function paint({ animate = false } = {}) {
   $('downPctHint').textContent = result.price > 0
     ? `${result.payment.downPct.toFixed(1)}% of the estimated price.${result.payment.downPct < 20 ? ' Under 20% means PMI.' : ' No PMI at 20% or more.'}`
     : '';
+
+  $('totalCashHint').textContent = !result.usingCashLimit
+    ? 'Unlike the emergency fund below, this one does feed the estimate: leave it blank and only the monthly payment limits the price. Set it and the price is also held back if the cash needed at closing — down payment, fees, escrow — would run past what you actually have.'
+    : result.cappedByCash
+      ? `This is what's holding the price back: your monthly budget alone would allow ${money(result.budgetPrice)}, but that takes more cash to close than you have. Held to ${money(result.price)} instead.`
+      : `Enough — closing at the estimate above takes about ${money(estimateCash.total)}, within the ${money(state.totalCash)} you said you have. The monthly budget is what's limiting the price here.`;
   $('firstHomeHint').textContent = state.firstHome !== false
     ? "The Money Guy's 3/5/25 lets a first home go as low as 3% down, provided you plan to stay five years. Under 20% still means PMI."
     : "After your first home, The Money Guy's figure is 20% down, not 3% — and the stay is five to seven years.";
@@ -1555,17 +1563,25 @@ function syncInputs() {
   $('hoa').value = commas(state.hoa);
   $('insManual').value = commas(state.insManual);
   $('emergencyFund').value = state.emergencyFund ? commas(state.emergencyFund) : '';
+  $('totalCash').value = state.totalCash == null ? '' : commas(state.totalCash);
   $('insManualWrap').hidden = state.insMode !== 'manual';
   $('testPriceWrap').hidden = state.priceTestMode !== 'manual';
   if (state.testPrice != null) $('testPrice').value = commas(state.testPrice);
 }
 
-function wireMoneyInput(id, key, { blankWhenZero = false } = {}) {
+function wireMoneyInput(id, key, { blankWhenZero = false, nullable = false } = {}) {
   const el = $(id);
-  el.addEventListener('input', () => { state[key] = parseNum(el.value); touched(); });
+  el.addEventListener('input', () => {
+    // Blank means "not entered" here, not zero — the two mean very different
+    // things for a field that can cap the estimate (see totalCash).
+    state[key] = nullable && el.value.trim() === '' ? null : parseNum(el.value);
+    touched();
+  });
   el.addEventListener('blur', () => {
     // An optional field stays empty rather than tidying itself to "0".
-    el.value = blankWhenZero && !state[key] ? '' : commas(state[key]);
+    el.value = nullable
+      ? (state[key] == null ? '' : commas(state[key]))
+      : (blankWhenZero && !state[key] ? '' : commas(state[key]));
   });
 }
 
@@ -1598,6 +1614,7 @@ wireMoneyInput('hoa', 'hoa');
 wireMoneyInput('insManual', 'insManual');
 wireMoneyInput('testPrice', 'testPrice');
 wireMoneyInput('emergencyFund', 'emergencyFund', { blankWhenZero: true });
+wireMoneyInput('totalCash', 'totalCash', { nullable: true });
 wireSelect('filing', 'filing');
 wireSelect('payfreq', 'payfreq');
 wireSelect('credit', 'credit');
@@ -1747,6 +1764,7 @@ function renderComparison(views) {
     const flags = [];
     if (column.usingTestPrice) flags.push('a price you entered');
     if (column.cappedByRule) flags.push('held to 28% of gross');
+    if (column.cappedByCash) flags.push('held to cash on hand');
     if (flags.length) {
       const flag = document.createElement('span');
       flag.className = 'cmp-flag';
