@@ -163,6 +163,46 @@ test('unicode survives the round trip', () => {
 });
 
 /* ---------------------------------------------------------------------------
+ * Share links
+ *
+ * A pasted code depends on a long, case-sensitive string round-tripping
+ * through a clipboard exactly — a mobile keyboard's autocapitalize, an
+ * "Allow Paste" prompt someone dismisses, all real, reported failure modes.
+ * A tapped link just navigates, so decodeShareCode has to accept one
+ * transparently: whatever's after #s=, URL-decoded, with a bare code (or a
+ * whole link pasted as text instead of tapped) still working exactly as
+ * before.
+ * ------------------------------------------------------------------------- */
+
+test('decodeShareCode reads a code straight out of a share link', async () => {
+  const { extractShareCode } = await import('../assets/js/state.js');
+  const code = encodeShareCode(createDefaultState());
+  const link = `https://schirmacher1.github.io/Openbook/#s=${encodeURIComponent(code)}`;
+  assert.equal(extractShareCode(link), code);
+  assert.equal(decodeShareCode(link).salary, createDefaultState().salary);
+});
+
+test('extractShareCode leaves a bare code untouched', async () => {
+  const { extractShareCode } = await import('../assets/js/state.js');
+  const code = encodeShareCode(createDefaultState());
+  assert.equal(extractShareCode(code), code);
+  assert.equal(extractShareCode(`  ${code}  `), code); // whitespace from a sloppy paste
+});
+
+test('a code containing base64\'s own + and / survives the link round trip', async () => {
+  const { extractShareCode } = await import('../assets/js/state.js');
+  // Not every real code happens to contain +, / or = — exercised directly
+  // here with a synthetic one that's guaranteed to, since those are exactly
+  // the characters encodeURIComponent has to escape and decodeURIComponent
+  // has to correctly reverse.
+  const code = 'ab+/cd==';
+  const link = `https://example.com/#s=${encodeURIComponent(code)}`;
+  assert.ok(link.includes('%2B') && link.includes('%2F') && link.includes('%3D'),
+    'the link should carry those characters escaped, not literal');
+  assert.equal(extractShareCode(link), code);
+});
+
+/* ---------------------------------------------------------------------------
  * The in-tab draft
  * ------------------------------------------------------------------------- */
 

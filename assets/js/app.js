@@ -18,7 +18,7 @@ import {
   createDefaultState, createEmptyState, newItem, hydrate,
   save, load, clear, saveDraft, loadDraft, clearDraft,
   listViews, saveView, renameView, deleteView, clearViews, VIEW_LIMITS,
-  encodeShareCode, encodeShareBundle, decodeShareCode
+  encodeShareCode, encodeShareBundle, decodeShareCode, extractShareCode
 } from './state.js';
 
 const $ = (id) => document.getElementById(id);
@@ -2109,6 +2109,21 @@ function siteUrl() {
   return `${location.origin}${location.pathname}`;
 }
 
+/**
+ * A share code carried in a link instead of a blob of text to copy exactly.
+ * The code lives after `#s=` in the fragment, which browsers never send to
+ * any server — GitHub Pages' own access log never sees it, same privacy
+ * property as a bare code, just tap-to-load instead of copy-then-paste.
+ * That distinction is the point: a pasted code depends on the clipboard
+ * round-tripping a long case-sensitive string exactly (a mobile keyboard's
+ * autocapitalize, an "Allow Paste" prompt someone misses, a copy that
+ * silently grabbed the wrong thing) — a tapped link just navigates, the way
+ * every other link on the page already does, so none of that is in play.
+ */
+function shareLink(code) {
+  return `${siteUrl()}#s=${encodeURIComponent(code)}`;
+}
+
 function defaultInviteBody() {
   return `I've been using Openbook to figure out what home I can actually afford, `
     + `not just what a lender would approve. Free, no sign-up: ${siteUrl()}`;
@@ -2189,23 +2204,23 @@ async function offerShareCode(code, { copiedMessage, panelHint }) {
 
 /** The current on-screen numbers only — the plain, single-scenario share. */
 async function doShare() {
-  await offerShareCode(encodeShareBundle({ current: state, views: [] }), {
-    copiedMessage: 'Code copied — send it, and they paste it into "Paste a code"',
-    panelHint: "Copying it automatically didn't work in this browser. Select the code and copy it by hand — it's the whole of your numbers, so send it however you'd send anything else private."
+  await offerShareCode(shareLink(encodeShareBundle({ current: state, views: [] })), {
+    copiedMessage: 'Link copied — send it, and they just tap it',
+    panelHint: "Copying it automatically didn't work in this browser. Select the link and copy it by hand — it's the whole of your numbers, so send it however you'd send anything else private."
   });
 }
 
 /**
  * One saved view. Carries the view's own name and state twice over, in both
  * halves of the bundle: as `current`, so the recipient sees it immediately on
- * paste rather than only filed away, and as the one entry in `views`, so it
- * also lands in their library under its name rather than replacing whatever
- * they already had on screen without a record of it.
+ * opening the link rather than only filed away, and as the one entry in
+ * `views`, so it also lands in their library under its name rather than
+ * replacing whatever they already had on screen without a record of it.
  */
 async function shareOneView(view) {
-  await offerShareCode(encodeShareBundle({ current: view.state, views: [view] }), {
-    copiedMessage: `"${view.name}" copied — send it, and they paste it into "Paste a code"`,
-    panelHint: `Copying it automatically didn't work in this browser. Select the code and copy it by hand — it's "${view.name}", so send it however you'd send anything else private.`
+  await offerShareCode(shareLink(encodeShareBundle({ current: view.state, views: [view] })), {
+    copiedMessage: `"${view.name}" link copied — send it, and they just tap it`,
+    panelHint: `Copying it automatically didn't work in this browser. Select the link and copy it by hand — it's "${view.name}", so send it however you'd send anything else private.`
   });
 }
 
@@ -2216,9 +2231,9 @@ async function shareOneView(view) {
  */
 async function shareAllViews(views) {
   const n = views.length;
-  await offerShareCode(encodeShareBundle({ current: null, views }), {
-    copiedMessage: `${n} view${n === 1 ? '' : 's'} copied — send it, and they paste it into "Paste a code"`,
-    panelHint: `Copying it automatically didn't work in this browser. Select the code and copy it by hand — it's all ${n} of your saved views, so send it however you'd send anything else private.`
+  await offerShareCode(shareLink(encodeShareBundle({ current: null, views })), {
+    copiedMessage: `Link to ${n} view${n === 1 ? '' : 's'} copied — send it, and they just tap it`,
+    panelHint: `Copying it automatically didn't work in this browser. Select the link and copy it by hand — it's all ${n} of your saved views, so send it however you'd send anything else private.`
   });
 }
 
@@ -2280,16 +2295,26 @@ function describeImport(names) {
     : ` Also added ${names.length} saved views: ${names.map((n) => `"${n}"`).join(', ')}.`;
 }
 
-$('btnLoadCode').addEventListener('click', () => {
-  const input = $('loadCodeInput');
-  if (!input.value.trim()) { toast('Paste a code first', true); return; }
-
+/**
+ * The one place that decodes an incoming code and applies whatever it
+ * carries — shared by the manual "Paste a code" button and a tapped share
+ * link opening cold, so the two ways of arriving at the same numbers can't
+ * drift into different behaviour. `raw` is passed through extractShareCode()
+ * first, so either a bare code or a whole link (someone pasted the link
+ * text itself, rather than tapping it) works the same way here.
+ *
+ * Returns `{ ok: false }` on anything that didn't decode, or
+ * `{ ok: true, kind: 'current' | 'views', importedCount }` — `kind` says
+ * whether the on-screen numbers changed (and the caller should treat this
+ * like a fresh page of someone else's figures) or only the views library
+ * grew (the caller's own numbers are untouched).
+ */
+function applyIncomingCode(raw) {
   let decoded;
   try {
-    decoded = decodeShareCode(input.value);
+    decoded = decodeShareCode(raw);
   } catch (e) {
-    toast("That code doesn't look right — check it copied in full", true);
-    return;
+    return { ok: false };
   }
 
   const isBundle = decoded && decoded.bundle === true;
@@ -2306,25 +2331,68 @@ $('btnLoadCode').addEventListener('click', () => {
     revealResults();
     mobileSummaryUpdate();
     persist();
-    input.value = '';
-    showPanel(null);
-    toast(imported.length ? `Loaded, plus ${imported.length} saved view${imported.length === 1 ? '' : 's'}` : 'Loaded');
-    return;
+    return { ok: true, kind: 'current', importedCount: imported.length };
   }
 
-  // Views only — a "share all views" or "share this view" code pasted where
+  // Views only — a "share all views" or "share this view" code arrived where
   // the sender chose not to carry their on-screen numbers too. Nothing on
   // this screen changes; the library gains what arrived.
   if (imported.length) {
-    input.value = '';
-    showPanel('viewsPanel');
     renderViews();
-    toast(`Added ${imported.length} saved view${imported.length === 1 ? '' : 's'}`);
-    return;
+    return { ok: true, kind: 'views', importedCount: imported.length };
   }
 
-  toast("That code doesn't look right — check it copied in full", true);
+  return { ok: false };
+}
+
+$('btnLoadCode').addEventListener('click', () => {
+  const input = $('loadCodeInput');
+  if (!input.value.trim()) { toast('Paste a code first', true); return; }
+
+  const result = applyIncomingCode(input.value);
+  input.value = '';
+
+  if (!result.ok) {
+    toast("That code doesn't look right — check it copied in full", true);
+    return;
+  }
+  showPanel(result.kind === 'views' ? 'viewsPanel' : null);
+  if (result.kind === 'views') {
+    renderViews();
+    toast(`Added ${result.importedCount} saved view${result.importedCount === 1 ? '' : 's'}`);
+  } else {
+    toast(result.importedCount ? `Loaded, plus ${result.importedCount} saved view${result.importedCount === 1 ? '' : 's'}` : 'Loaded');
+  }
 });
+
+/**
+ * A tapped share link carries its code after `#s=` in the hash — never the
+ * query string or the path, so the browser never puts it in a request to
+ * any server in the first place. Checked once, right after boot() has
+ * already settled on whatever it would have shown anyway (a device save, a
+ * draft, or the example numbers), since a link's whole point is to override
+ * that with what it's carrying — same as pasting a code by hand after the
+ * page has already loaded. The hash is cleared from the address bar either
+ * way, so refreshing doesn't reapply it and the numbers don't linger in
+ * browser history as a URL.
+ */
+function applyHashCode() {
+  if (!location.hash.startsWith('#s=')) return;
+
+  const raw = location.hash;
+  history.replaceState(null, '', location.pathname + location.search);
+
+  const result = applyIncomingCode(raw);
+  if (!result.ok) {
+    toast("That link's code doesn't look right — ask them to send it again", true);
+    return;
+  }
+  if (result.kind === 'views') {
+    toast(`Added ${result.importedCount} saved view${result.importedCount === 1 ? '' : 's'}`);
+  } else {
+    toast(result.importedCount ? `Loaded, plus ${result.importedCount} saved view${result.importedCount === 1 ? '' : 's'}` : 'Loaded from the link');
+  }
+}
 
 menuAction('btnReset', () => {
   applyState(createEmptyState(), { message: 'Cleared the example numbers. Everything is yours to fill in.' });
@@ -2449,6 +2517,7 @@ function boot() {
     applyState(state, { message: 'Restored the numbers you saved here earlier.' });
     setSaveStatus(restored.savedAt);
     revealResults();
+    applyHashCode();
     return;
   }
 
@@ -2460,11 +2529,13 @@ function boot() {
     applyState(state);
     setSaveStatus(null, { draft: true });
     revealResults();
+    applyHashCode();
     return;
   }
 
   applyState(hydrate(createDefaultState()));
   setSaveStatus(null);
+  applyHashCode();
 }
 
 boot();
