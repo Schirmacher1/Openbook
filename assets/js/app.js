@@ -1392,14 +1392,19 @@ function paint({ animate = false } = {}) {
   setMoney($('homePrice'), result.price, animate);
 
   const where = state.city.trim() ? `${state.city.trim()}, ${stateInfo.name}` : stateInfo.name;
-  $('homePriceSub').textContent = `Buying in ${where} with ${money(result.model.downpayment)} down, on a ${state.term}-year fixed.`;
+  // The dollars actually going down at this price, not the figure typed in —
+  // the two only differ when a tight cash figure has capped the price below
+  // the stated down payment (see paymentAt() in calc.js), and showing the
+  // bigger, unused number there reads as a contradiction: "$0 house, $200,000
+  // down."
+  $('homePriceSub').textContent = `Buying in ${where} with ${money(result.payment.down)} down, on a ${state.term}-year fixed.`;
 
   $('paymentTotal').textContent = `${money(result.payment.total)}/mo`;
   renderPaymentViz(result.payment);
 
   $('outLoan').textContent = money(result.payment.loan);
   $('outRate').textContent = `${result.model.rate.toFixed(2)}%`;
-  $('outDown').textContent = `${money(result.model.downpayment)} · ${result.payment.downPct.toFixed(0)}%`;
+  $('outDown').textContent = `${money(result.payment.down)} · ${result.payment.downPct.toFixed(0)}%`;
 
   // For THIS price specifically — result.cash (below, in the fuller
   // breakdown) follows the ledger's what-if price instead when one is

@@ -138,16 +138,35 @@ test('solvePriceByCash finds the largest price whose cash to close fits', () => 
   assert.ok(cashToClose(model.paymentAt(price * 1.01), model).total > cash);
 });
 
-test('solvePriceByCash never searches below the down payment itself', () => {
+test('solvePriceByCash with plenty of cash lands well above the down payment', () => {
   const model = housingModel({ ...createDefaultState(), downpayment: 40000 });
-  // Plenty of cash: the ceiling should sit well above the down payment, not at it.
   assert.ok(solvePriceByCash(500000, model) > 40000);
 });
 
-test('solvePriceByCash returns 0 when even the cheapest price costs more cash than there is', () => {
+test('solvePriceByCash below the down payment finances the whole price in cash, not $0', () => {
+  // Less cash than closing on a $40,000 down payment itself would need — the
+  // down payment as typed doesn't fit, not "nothing is affordable."
   const model = housingModel({ ...createDefaultState(), downpayment: 40000 });
   const flooredCash = cashToClose(model.paymentAt(40000), model).total;
-  assert.equal(solvePriceByCash(flooredCash - 1, model), 0);
+  const cash = flooredCash - 1;
+
+  const price = solvePriceByCash(cash, model);
+  assert.ok(price > 0, 'a smaller, all-cash price must still be found');
+  assert.ok(price < 40000, 'it must land below the stated down payment');
+
+  const payment = model.paymentAt(price);
+  assert.equal(payment.loan, 0, 'below the down payment there is no loan');
+  // The actual down payment paid must equal the price, not the figure typed in.
+  near(payment.down, price, 0.01);
+  // That reads as 100% down, never over.
+  near(payment.downPct, 100, 0.01);
+  near(cashToClose(payment, model).total, cash, 5);
+});
+
+test('solvePriceByCash returns 0 only when there is no cash at all', () => {
+  const model = housingModel({ ...createDefaultState(), downpayment: 40000 });
+  assert.equal(solvePriceByCash(0, model), 0);
+  assert.equal(solvePriceByCash(-100, model), 0);
 });
 
 /* -------------------------------------------------------------------------- */
@@ -365,6 +384,23 @@ test('compute: a generous cash figure leaves the payment budget in charge', () =
   assert.equal(result.usingCashLimit, true);
   assert.equal(result.cappedByCash, false);
   near(result.price, result.budgetPrice, 0.01);
+});
+
+test('compute: cash under the down payment itself finances a smaller price, never $0', () => {
+  // A large stated down payment with barely any cash beyond it — the exact
+  // shape that used to solve to an unaffordable $0 with a contradictory
+  // "$200,000 down, 100%" underneath it.
+  const state = { ...createDefaultState(), downpayment: 200000, totalCash: 5000 };
+  const result = compute(state);
+
+  assert.ok(result.cappedByCash);
+  assert.ok(result.price > 0, 'a smaller price must still be found, not $0');
+  assert.ok(result.price < state.downpayment, 'it must land below the stated down payment');
+  assert.equal(result.payment.loan, 0, 'financed entirely in cash, no loan');
+  // What actually went down must match the price, not the $200,000 typed in
+  // — the figure the headline and the "Down payment" stat both show.
+  near(result.payment.down, result.price, 0.01);
+  assert.ok(result.cash.total <= state.totalCash + 1);
 });
 
 test('compute: every household lands inside the rule on housing', () => {
