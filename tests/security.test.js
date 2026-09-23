@@ -457,6 +457,26 @@ test('syncItemToViews is a no-op with no label or no views', async () => {
   });
 });
 
+test('syncItemToViews with viewIds only touches the chosen views', async () => {
+  const mod = await import('../assets/js/state.js');
+  await withLocalStorage(fakeStorage(), () => {
+    mod.saveView('Plan A', { ...createDefaultState(), debtItems: [] });
+    mod.saveView('Plan B', { ...createDefaultState(), debtItems: [] });
+    mod.saveView('Plan C', { ...createDefaultState(), debtItems: [] });
+
+    const [a, , c] = mod.listViews().sort((x, y) => x.name.localeCompare(y.name));
+    const changed = mod.syncItemToViews(
+      'debtItems', 'add', { label: 'Car loan', mode: 'dollar', value: 300 }, [a.id, c.id]
+    );
+
+    assert.equal(changed, 2, 'only the two chosen views change');
+    const byName = Object.fromEntries(mod.listViews().map((v) => [v.name, v.state]));
+    assert.equal(byName['Plan A'].debtItems.length, 1);
+    assert.equal(byName['Plan B'].debtItems.length, 0, 'not chosen — left alone');
+    assert.equal(byName['Plan C'].debtItems.length, 1);
+  });
+});
+
 /* ---------------------------------------------------------------------------
  * Share bundles: a code that carries more than one state
  *
