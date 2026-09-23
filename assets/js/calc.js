@@ -139,7 +139,12 @@ export function housingModel(state) {
   function paymentAt(price) {
     const p = Math.max(0, price);
     const loan = Math.max(0, p - downpayment);
-    const downPct = p > 0 ? (downpayment / p) * 100 : 100;
+    // The dollars actually going down, as opposed to the figure typed in: the
+    // two only differ below the down payment itself, where there's no loan
+    // and putting the whole stated amount down would be more than the price
+    // — see solvePriceByCash(), the only place a price down here comes from.
+    const down = Math.min(p, downpayment);
+    const downPct = p > 0 ? (down / p) * 100 : 100;
     // Held to a ceiling a real rate card could quote: the tier multipliers put
     // the weakest credit past 5% a year otherwise, which no insurer writes.
     const pmiRate = downPct >= 20
@@ -150,7 +155,7 @@ export function housingModel(state) {
     const tax = (p * (stateInfo.proptax / 100)) / 12;
     const insurance = insuranceAt(p);
     return {
-      price: p, loan, pi, tax, insurance, pmi, hoa: hoaMonthly, downPct, pmiRate,
+      price: p, loan, down, pi, tax, insurance, pmi, hoa: hoaMonthly, downPct, pmiRate,
       total: pi + tax + insurance + pmi + hoaMonthly
     };
   }
@@ -212,30 +217,29 @@ export function cashToClose(payment, model) {
   const escrowTax = payment.tax * ESCROW_MONTHS_TAX;
   const escrowInsurance = payment.insurance * ESCROW_MONTHS_INSURANCE;
   const prepaidInterest = payment.loan * (model.rate / 100 / 365) * PREPAID_INTEREST_DAYS;
-  const down = Math.max(0, payment.price - payment.loan);
   const costs = fees + escrowTax + escrowInsurance + prepaidInterest;
 
-  return { down, fees, escrowTax, escrowInsurance, prepaidInterest, costs, total: down + costs };
+  return { down: payment.down, fees, escrowTax, escrowInsurance, prepaidInterest, costs, total: payment.down + costs };
 }
 
 /**
- * Largest home price whose cash to close fits the cash actually on hand. Same
- * bisection shape as solvePrice(), for the same reason: cashToClose().total
- * is non-strictly increasing in price at a fixed dollar down payment (fees
- * and escrow scale with price; the down payment itself never needs more than
- * it already takes), so it stays stable across the same PMI-tier steps.
- *
- * Below the down payment there is no loan and cashToClose() folds "down" back
- * to the price itself (see its own comment) — a different, not particularly
- * useful shape — so, like solvePrice(), this never searches below it. Returns
- * 0 when even that floor costs more cash than there is, meaning no price is
- * reachable with this down payment at all.
+ * Largest home price whose cash to close fits the cash actually on hand.
+ * cashToClose().total is non-strictly increasing in price across the whole
+ * range from $0, including through the down payment: above it, a fixed
+ * dollar down payment plus fees and escrow that scale with price; below it,
+ * there's no loan, so paymentAt() folds the down payment paid down to the
+ * price itself (see its own comment) rather than something bigger than the
+ * purchase, and that still only grows with price. So cash too tight to cover
+ * the down payment as typed means a smaller purchase with a smaller down
+ * payment, financed entirely in cash — not "no price is affordable" — and
+ * one bisection over the whole range finds it, the same shape as
+ * solvePrice(). Only cash that is itself zero (or less) has no reachable
+ * price at all.
  */
 export function solvePriceByCash(totalCash, model) {
-  const floor = model.downpayment;
-  if (cashToClose(model.paymentAt(floor), model).total > totalCash) return 0;
-  let lo = floor;
-  let hi = floor + 4_000_000;
+  if (!(totalCash > 0)) return 0;
+  let lo = 0;
+  let hi = model.downpayment + 4_000_000;
   while (cashToClose(model.paymentAt(hi), model).total <= totalCash && hi < 50_000_000) hi *= 2;
   for (let i = 0; i < 60; i++) {
     const mid = (lo + hi) / 2;
