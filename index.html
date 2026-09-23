@@ -612,6 +612,31 @@
             <p class="result-hero" id="homePrice">$0</p>
             <p class="result-sub" id="homePriceSub"></p>
 
+            <!--
+              Shown only once a total-cash figure is entered and it's actually
+              the tighter of the two tests — see cappedByCash in calc.js. The
+              two numbers side by side are the point: what the down payment
+              typed in would allow on its own, versus what the price above
+              actually is once the cash on hand is factored in. Those used to
+              differ silently — the "Down payment" stat below would just show
+              a smaller number than the one just typed, with nothing on the
+              page explaining why — which is exactly what read as a bug.
+            -->
+            <div class="cash-notice" id="cashCapNotice" hidden>
+              <p class="cash-notice-heading">Your cash on hand — not your down payment — is what's holding this back</p>
+              <div class="cash-notice-compare">
+                <div class="cash-notice-figure">
+                  <span class="cash-notice-label">Down payment alone would allow</span>
+                  <span class="cash-notice-value" id="cashNoticeBudgetPrice">$0</span>
+                </div>
+                <div class="cash-notice-figure">
+                  <span class="cash-notice-label">Your cash on hand allows</span>
+                  <span class="cash-notice-value" id="cashNoticeCashPrice">$0</span>
+                </div>
+              </div>
+              <p class="cash-notice-detail" id="cashNoticeDetail"></p>
+            </div>
+
             <div class="payment-viz">
               <div class="payment-head">
                 <span>Monthly payment</span>

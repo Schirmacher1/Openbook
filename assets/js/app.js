@@ -1399,6 +1399,27 @@ function paint({ animate = false } = {}) {
   // down."
   $('homePriceSub').textContent = `Buying in ${where} with ${money(result.payment.down)} down, on a ${state.term}-year fixed.`;
 
+  // When cash is what's holding the price back, the down payment above is
+  // almost always what gave way first (see solvePriceForCash() in calc.js)
+  // — this is the case that used to read as a contradiction: the stat
+  // showing a different, smaller down payment than the one just typed in,
+  // with nothing here explaining why.
+  const downGaveWay = result.usingCashLimit && result.payment.down < result.model.downpayment - 0.5;
+
+  // Unmissable, not just a footnote: what the down payment as typed would
+  // allow on its own, next to what the cash on hand actually allows, the
+  // moment the two genuinely differ — rather than only a small note further
+  // down the page a viewer could easily scroll past.
+  const cashNotice = $('cashCapNotice');
+  cashNotice.hidden = !result.cappedByCash;
+  if (result.cappedByCash) {
+    $('cashNoticeBudgetPrice').textContent = money(result.budgetPrice);
+    $('cashNoticeCashPrice').textContent = money(result.price);
+    $('cashNoticeDetail').textContent = downGaveWay
+      ? `Your ${money(state.totalCash)} cash doesn't stretch to the full ${money(state.downpayment)} down payment you set plus closing costs on the bigger home, so the down payment above is ${money(result.payment.down)} instead — keeping the price as close as possible to what your down payment alone would have allowed.`
+      : `Even with the down payment reduced, your ${money(state.totalCash)} cash isn't enough to close on ${money(result.budgetPrice)} — so the price itself is held to ${money(result.price)} instead.`;
+  }
+
   $('paymentTotal').textContent = `${money(result.payment.total)}/mo`;
   renderPaymentViz(result.payment);
 
@@ -1411,12 +1432,6 @@ function paint({ animate = false } = {}) {
   // entered, so the two can differ on purpose; this one never does.
   const estimateCash = cashToClose(result.payment, result.model);
   $('outCash').textContent = money(estimateCash.total);
-  // When cash is what's holding the price back, the down payment above is
-  // almost always what gave way first (see solvePriceForCash() in calc.js)
-  // — this is the case that used to read as a contradiction: the stat
-  // showing a different, smaller down payment than the one just typed in,
-  // with nothing here explaining why.
-  const downGaveWay = result.usingCashLimit && result.payment.down < result.model.downpayment - 0.5;
   $('outCashNote').textContent = result.cappedByCash
     ? downGaveWay
       ? `${money(estimateCash.costs)} of that is fees and escrow on top of the down payment above. Your cash didn't stretch to the full ${money(result.model.downpayment)} you set plus those costs, so the down payment above is ${money(result.payment.down)} instead — enough to keep the price close to the ${money(result.budgetPrice)} your monthly budget alone would allow, rather than letting the price itself drop instead. Full breakdown below.`
