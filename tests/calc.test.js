@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 
 import {
   parseNum, bracketTax, monthlyPI, rateForTerm, pmiBaseForDownPct,
-  computePaycheck, housingModel, solvePrice, solvePriceByCash, cashToClose, compute
+  computePaycheck, housingModel, solvePrice, solvePriceForCash, cashToClose, compute
 } from '../assets/js/calc.js';
 import { BRACKETS, CREDIT_BANDS, SS_WAGE_BASE, STATE_DATA, PMI_RATE_CAP } from '../assets/js/data.js';
 import { createDefaultState, createEmptyState } from '../assets/js/state.js';
@@ -127,46 +127,81 @@ test('20% down removes PMI entirely', () => {
   assert.ok(model.paymentAt(600000).pmi > 0);
 });
 
-test('solvePriceByCash finds the largest price whose cash to close fits', () => {
+test('solvePriceForCash with generous cash matches solvePrice exactly, full down payment kept', () => {
   const state = { ...createDefaultState(), downpayment: 40000, insMode: 'manual', insManual: 120 };
   const model = housingModel(state);
-  const cash = 60000;
-  const price = solvePriceByCash(cash, model);
+  const budget = 2200;
+  const { price, down } = solvePriceForCash(budget, 60000, model);
 
-  near(cashToClose(model.paymentAt(price), model).total, cash, 5);
-  // One percent more house must cost more cash to close, or the solver stopped short.
-  assert.ok(cashToClose(model.paymentAt(price * 1.01), model).total > cash);
+  assert.equal(down, 40000, 'cash well beyond what closing needs keeps the full stated down payment');
+  near(price, solvePrice(budget, model), 0.01);
 });
 
-test('solvePriceByCash with plenty of cash lands well above the down payment', () => {
-  const model = housingModel({ ...createDefaultState(), downpayment: 40000 });
-  assert.ok(solvePriceByCash(500000, model) > 40000);
+test('solvePriceForCash shrinks the down payment before it shrinks the price', () => {
+  const state = { ...createDefaultState(), downpayment: 40000, insMode: 'manual', insManual: 120 };
+  const model = housingModel(state);
+  const budget = 2200;
+  const budgetOnlyPrice = solvePrice(budget, model);
+  // Less than the ~$49,100 that closing on the budget-only price, at the
+  // full down payment, would actually need.
+  const cash = 42000;
+
+  const { price, down } = solvePriceForCash(budget, cash, model);
+  const payment = model.paymentFor(price, down);
+
+  assert.ok(down < 40000, 'the down payment must give way first');
+  assert.ok(payment.loan > 0, 'still a real mortgage');
+  // The monthly payment settles right at the budget, not under it.
+  near(payment.total, budget, 0.01);
+  near(cashToClose(payment, model).total, cash, 5);
+  // The price barely has to move — this is the entire point of letting the
+  // down payment absorb the shortfall instead.
+  assert.ok(price < budgetOnlyPrice);
+  assert.ok(price > budgetOnlyPrice * 0.95);
+
+  // A thousand dollars more of down payment must not still fit the cash, or
+  // the solver left room it could have spent on a higher price.
+  assert.ok(cashToClose(model.paymentFor(price, down + 1000), model).total > cash);
 });
 
-test('solvePriceByCash below the down payment finances the whole price in cash, not $0', () => {
-  // Less cash than closing on a $40,000 down payment itself would need — the
-  // down payment as typed doesn't fit, not "nothing is affordable."
-  const model = housingModel({ ...createDefaultState(), downpayment: 40000 });
-  const flooredCash = cashToClose(model.paymentAt(40000), model).total;
-  const cash = flooredCash - 1;
+test('solvePriceForCash lets the price give way too, once no down payment can protect both tests at once', () => {
+  const state = { ...createDefaultState(), downpayment: 40000, insMode: 'manual', insManual: 120 };
+  const model = housingModel(state);
+  const budget = 2200;
+  const budgetOnlyPrice = solvePrice(budget, model);
+  // Tight enough that even $0 down at the budget-only price would need a
+  // loan whose payment alone already busts the budget.
+  const cash = 15000;
 
-  const price = solvePriceByCash(cash, model);
-  assert.ok(price > 0, 'a smaller, all-cash price must still be found');
-  assert.ok(price < 40000, 'it must land below the stated down payment');
+  const { price, down } = solvePriceForCash(budget, cash, model);
+  const payment = model.paymentFor(price, down);
 
-  const payment = model.paymentAt(price);
-  assert.equal(payment.loan, 0, 'below the down payment there is no loan');
-  // The actual down payment paid must equal the price, not the figure typed in.
-  near(payment.down, price, 0.01);
-  // That reads as 100% down, never over.
-  near(payment.downPct, 100, 0.01);
+  assert.ok(price > 0, 'a price must still be found, not $0');
+  assert.ok(price < budgetOnlyPrice, 'this cash figure is tight enough that the price must give way too');
+  assert.ok(payment.loan > 0, 'still a real mortgage, not an all-cash purchase');
+  assert.ok(payment.total <= budget + 0.01);
   near(cashToClose(payment, model).total, cash, 5);
 });
 
-test('solvePriceByCash returns 0 only when there is no cash at all', () => {
+test('solvePriceForCash maximizes leverage when the monthly budget genuinely never binds', () => {
+  // A budget large enough that no realistic payment could ever hit it —
+  // isolates what the cash/down-payment trade alone does. Minimizing the
+  // down payment is then the *correct* way to maximize price, not a bug:
+  // every dollar not spent on the down payment can go toward fees on a
+  // bigger loan instead, and nothing here is punishing a bigger loan.
   const model = housingModel({ ...createDefaultState(), downpayment: 40000 });
-  assert.equal(solvePriceByCash(0, model), 0);
-  assert.equal(solvePriceByCash(-100, model), 0);
+  const { price, down } = solvePriceForCash(1_000_000, 60000, model);
+
+  assert.ok(down < 100, 'down payment collapses toward $0 to maximize leverage');
+  // Far more house than the same cash could reach while keeping the full
+  // stated down payment fixed (roughly $320,000 in that scenario, above).
+  assert.ok(price > 1_000_000);
+});
+
+test('solvePriceForCash returns price 0 only when there is no cash at all', () => {
+  const model = housingModel({ ...createDefaultState(), downpayment: 40000 });
+  assert.deepEqual(solvePriceForCash(2200, 0, model), { price: 0, down: 0 });
+  assert.deepEqual(solvePriceForCash(2200, -100, model), { price: 0, down: 0 });
 });
 
 /* -------------------------------------------------------------------------- */
@@ -363,43 +398,52 @@ test('compute: totalCash left blank never affects the price', () => {
   assert.equal(explicitNull.cappedByCash, false);
 });
 
-test('compute: a tight cash figure caps the price below the payment budget', () => {
+test('compute: a generous cash figure leaves the payment budget in charge', () => {
+  const result = compute({ ...createDefaultState(), totalCash: 5_000_000 });
+  assert.equal(result.usingCashLimit, true);
+  assert.equal(result.cappedByCash, false);
+  near(result.price, result.budgetPrice, 0.01);
+  // Plenty of cash keeps the full stated down payment.
+  near(result.payment.down, result.model.downpayment, 0.01);
+});
+
+test('compute: a tight cash figure shrinks the down payment before it shrinks the price', () => {
   const budgetOnly = compute(createDefaultState());
-  // Comfortably less than what closing on the budget-only price would need.
+  // Comfortably less than what closing on the budget-only price, at the full
+  // stated down payment, would actually need.
   const state = { ...createDefaultState(), totalCash: budgetOnly.model.downpayment + 5000 };
   const result = compute(state);
 
   assert.equal(result.usingCashLimit, true);
   assert.ok(result.cappedByCash, 'the cash ceiling must bind here');
-  assert.ok(result.price < budgetOnly.price, 'cash-capped price must be lower than the budget-only price');
-  near(result.price, result.cashPrice, 0.01);
+  assert.ok(result.payment.down < result.model.downpayment,
+    'the down payment must give way rather than the price alone');
+  assert.ok(result.payment.loan > 0, 'giving up some down payment should buy a real loan');
+  // The price should still land close to the budget-only estimate — a
+  // smaller down payment protects it, exactly as it's meant to — not
+  // collapse the way holding the down payment fixed used to force it to.
+  assert.ok(result.price > budgetOnly.price * 0.9,
+    'shrinking the down payment must keep the price close to the budget-only estimate');
   // The cash actually needed at the solved price must fit what was entered.
   assert.ok(result.cash.total <= state.totalCash + 1);
   // It must not be misread as a PMI-tier rounding sliver either.
   assert.equal(result.pmiTierLimited, false);
 });
 
-test('compute: a generous cash figure leaves the payment budget in charge', () => {
-  const result = compute({ ...createDefaultState(), totalCash: 5_000_000 });
-  assert.equal(result.usingCashLimit, true);
-  assert.equal(result.cappedByCash, false);
-  near(result.price, result.budgetPrice, 0.01);
-});
-
-test('compute: cash under the down payment itself finances a smaller price, never $0', () => {
-  // A large stated down payment with barely any cash beyond it — the exact
+test('compute: cash far under the down payment still buys real mortgaged house, never $0', () => {
+  // A large stated down payment with barely any cash at all — the exact
   // shape that used to solve to an unaffordable $0 with a contradictory
   // "$200,000 down, 100%" underneath it.
   const state = { ...createDefaultState(), downpayment: 200000, totalCash: 5000 };
   const result = compute(state);
 
   assert.ok(result.cappedByCash);
-  assert.ok(result.price > 0, 'a smaller price must still be found, not $0');
-  assert.ok(result.price < state.downpayment, 'it must land below the stated down payment');
-  assert.equal(result.payment.loan, 0, 'financed entirely in cash, no loan');
-  // What actually went down must match the price, not the $200,000 typed in
-  // — the figure the headline and the "Down payment" stat both show.
-  near(result.payment.down, result.price, 0.01);
+  assert.ok(result.price > 0, 'a price must still be found, not $0');
+  assert.ok(result.payment.down < state.downpayment, 'the down payment must shrink, not the whole purchase');
+  assert.ok(result.payment.loan > 0, 'a real mortgage, not an all-cash purchase, is the better trade');
+  // A mortgaged price should reach well beyond the $5,000 of cash itself —
+  // the entire point of giving up down payment rather than price.
+  assert.ok(result.price > state.totalCash * 5);
   assert.ok(result.cash.total <= state.totalCash + 1);
 });
 

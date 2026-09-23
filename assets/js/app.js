@@ -1411,9 +1411,17 @@ function paint({ animate = false } = {}) {
   // entered, so the two can differ on purpose; this one never does.
   const estimateCash = cashToClose(result.payment, result.model);
   $('outCash').textContent = money(estimateCash.total);
+  // When cash is what's holding the price back, the down payment above is
+  // almost always what gave way first (see solvePriceForCash() in calc.js)
+  // — this is the case that used to read as a contradiction: the stat
+  // showing a different, smaller down payment than the one just typed in,
+  // with nothing here explaining why.
+  const downGaveWay = result.usingCashLimit && result.payment.down < result.model.downpayment - 0.5;
   $('outCashNote').textContent = result.cappedByCash
-    ? `${money(estimateCash.costs)} of that is fees and escrow on top of the down payment above — a one-time cost to get to the closing table. `
-      + `It's why the price above is held to ${money(result.price)} rather than the ${money(result.budgetPrice)} your monthly budget alone would allow: that much house would need more cash to close than you said you have. Full breakdown below.`
+    ? downGaveWay
+      ? `${money(estimateCash.costs)} of that is fees and escrow on top of the down payment above. Your cash didn't stretch to the full ${money(result.model.downpayment)} you set plus those costs, so the down payment above is ${money(result.payment.down)} instead — enough to keep the price close to the ${money(result.budgetPrice)} your monthly budget alone would allow, rather than letting the price itself drop instead. Full breakdown below.`
+      : `${money(estimateCash.costs)} of that is fees and escrow on top of the down payment above — a one-time cost to get to the closing table. `
+        + `It's why the price above is held to ${money(result.price)} rather than the ${money(result.budgetPrice)} your monthly budget alone would allow: that much house would need more cash to close than you said you have. Full breakdown below.`
     : `${money(estimateCash.costs)} of that is fees and escrow on top of the down payment above — `
       + 'a one-time cost to get to the closing table, not a monthly one, so by default it never changes the price shown here — enter how much cash you have above to change that. Full breakdown below.';
 
@@ -1438,9 +1446,11 @@ function paint({ animate = false } = {}) {
     : '';
 
   $('totalCashHint').textContent = !result.usingCashLimit
-    ? 'Unlike the emergency fund below, this one does feed the estimate: leave it blank and only the monthly payment limits the price. Set it and the price is also held back if the cash needed at closing — down payment, fees, escrow — would run past what you actually have.'
+    ? "Unlike the emergency fund below, this one does feed the estimate: leave it blank and only the monthly payment limits the price. Set it and, if cash is tight, the down payment above gives way first — down to $0 if it has to — to keep the price as high as it can before the price itself would need to drop too."
     : result.cappedByCash
-      ? `This is what's holding the price back: your monthly budget alone would allow ${money(result.budgetPrice)}, but that takes more cash to close than you have. Held to ${money(result.price)} instead.`
+      ? downGaveWay
+        ? `This is why the down payment above is ${money(result.payment.down)} rather than the ${money(state.downpayment)} you set: your cash didn't stretch to both, so the down payment gave way to keep the price close to the ${money(result.budgetPrice)} your monthly budget alone would allow.`
+        : `This is what's holding the price back: your monthly budget alone would allow ${money(result.budgetPrice)}, but that takes more cash to close than you have. Held to ${money(result.price)} instead.`
       : `Enough — closing at the estimate above takes about ${money(estimateCash.total)}, within the ${money(state.totalCash)} you said you have. The monthly budget is what's limiting the price here.`;
   $('firstHomeHint').textContent = state.firstHome !== false
     ? "The Money Guy's 3/5/25 lets a first home go as low as 3% down, provided you plan to stay five years. Under 20% still means PMI."
