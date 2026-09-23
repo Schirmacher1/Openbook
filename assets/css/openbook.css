@@ -542,6 +542,8 @@ a { color: var(--accent-text); }
   border-radius: var(--radius-sm); padding: 11px 14px; font-size: 13.5px; margin-bottom: 14px;
 }
 .banner button { border: none; background: none; cursor: pointer; font-family: var(--font-ui); font-size: 13px; font-weight: 700; color: var(--ink-soft); }
+.banner-actions { display: flex; gap: 10px; flex-shrink: 0; }
+.banner-actions button:first-child { color: var(--accent-fill); }
 
 .calc-grid { display: grid; gap: 20px; align-items: start; }
 @media (min-width: 1000px) { .calc-grid { grid-template-columns: minmax(0, 1.12fr) minmax(0, .88fr); gap: 24px; } }
