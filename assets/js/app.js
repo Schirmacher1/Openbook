@@ -2204,7 +2204,7 @@ async function offerShareCode(code, { copiedMessage, panelHint }) {
 
 /** The current on-screen numbers only — the plain, single-scenario share. */
 async function doShare() {
-  await offerShareCode(shareLink(encodeShareBundle({ current: state, views: [] })), {
+  await offerShareCode(shareLink(await encodeShareBundle({ current: state, views: [] })), {
     copiedMessage: 'Link copied — send it, and they just tap it',
     panelHint: "Copying it automatically didn't work in this browser. Select the link and copy it by hand — it's the whole of your numbers, so send it however you'd send anything else private."
   });
@@ -2218,7 +2218,7 @@ async function doShare() {
  * replacing whatever they already had on screen without a record of it.
  */
 async function shareOneView(view) {
-  await offerShareCode(shareLink(encodeShareBundle({ current: view.state, views: [view] })), {
+  await offerShareCode(shareLink(await encodeShareBundle({ current: view.state, views: [view] })), {
     copiedMessage: `"${view.name}" link copied — send it, and they just tap it`,
     panelHint: `Copying it automatically didn't work in this browser. Select the link and copy it by hand — it's "${view.name}", so send it however you'd send anything else private.`
   });
@@ -2231,7 +2231,7 @@ async function shareOneView(view) {
  */
 async function shareAllViews(views) {
   const n = views.length;
-  await offerShareCode(shareLink(encodeShareBundle({ current: null, views })), {
+  await offerShareCode(shareLink(await encodeShareBundle({ current: null, views })), {
     copiedMessage: `Link to ${n} view${n === 1 ? '' : 's'} copied — send it, and they just tap it`,
     panelHint: `Copying it automatically didn't work in this browser. Select the link and copy it by hand — it's all ${n} of your saved views, so send it however you'd send anything else private.`
   });
@@ -2309,10 +2309,10 @@ function describeImport(names) {
  * like a fresh page of someone else's figures) or only the views library
  * grew (the caller's own numbers are untouched).
  */
-function applyIncomingCode(raw) {
+async function applyIncomingCode(raw) {
   let decoded;
   try {
-    decoded = decodeShareCode(raw);
+    decoded = await decodeShareCode(raw);
   } catch (e) {
     return { ok: false };
   }
@@ -2345,11 +2345,11 @@ function applyIncomingCode(raw) {
   return { ok: false };
 }
 
-$('btnLoadCode').addEventListener('click', () => {
+$('btnLoadCode').addEventListener('click', async () => {
   const input = $('loadCodeInput');
   if (!input.value.trim()) { toast('Paste a code first', true); return; }
 
-  const result = applyIncomingCode(input.value);
+  const result = await applyIncomingCode(input.value);
   input.value = '';
 
   if (!result.ok) {
@@ -2376,13 +2376,13 @@ $('btnLoadCode').addEventListener('click', () => {
  * way, so refreshing doesn't reapply it and the numbers don't linger in
  * browser history as a URL.
  */
-function applyHashCode() {
+async function applyHashCode() {
   if (!location.hash.startsWith('#s=')) return;
 
   const raw = location.hash;
   history.replaceState(null, '', location.pathname + location.search);
 
-  const result = applyIncomingCode(raw);
+  const result = await applyIncomingCode(raw);
   if (!result.ok) {
     toast("That link's code doesn't look right — ask them to send it again", true);
     return;

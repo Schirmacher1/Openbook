@@ -138,28 +138,28 @@ test('a percentage row can never be marked pre-tax', () => {
   assert.equal(state.savingsItems[0].pretax, false);
 });
 
-test('decodeShareCode refuses an oversized code instead of parsing it', () => {
-  assert.throws(() => decodeShareCode('A'.repeat(LIMITS.shareCode + 1)), /too long/i);
+test('decodeShareCode refuses an oversized code instead of parsing it', async () => {
+  await assert.rejects(() => decodeShareCode('A'.repeat(LIMITS.shareCode + 1)), /too long/i);
 });
 
-test('decodeShareCode rejects malformed input rather than half-loading it', () => {
+test('decodeShareCode rejects malformed input rather than half-loading it', async () => {
   for (const bad of ['not base64!!', '', '{}', 'eyJhIjox']) {
-    assert.throws(() => decodeShareCode(bad));
+    await assert.rejects(() => decodeShareCode(bad));
   }
 });
 
-test('a legitimate share code still round-trips exactly', () => {
+test('a legitimate share code still round-trips exactly', async () => {
   const original = createDefaultState();
-  const restored = decodeShareCode(encodeShareCode(original));
+  const restored = await decodeShareCode(await encodeShareCode(original));
   assert.equal(restored.salary, original.salary);
   assert.equal(restored.debtItems.length, original.debtItems.length);
   assert.equal(restored.debtItems[0].label, original.debtItems[0].label);
   assert.equal(Math.round(compute(restored).price), Math.round(compute(original).price));
 });
 
-test('unicode survives the round trip', () => {
+test('unicode survives the round trip', async () => {
   const state = { ...createDefaultState(), city: 'Zürich · 日本 · café' };
-  assert.equal(decodeShareCode(encodeShareCode(state)).city, 'Zürich · 日本 · café');
+  assert.equal((await decodeShareCode(await encodeShareCode(state))).city, 'Zürich · 日本 · café');
 });
 
 /* ---------------------------------------------------------------------------
@@ -176,15 +176,15 @@ test('unicode survives the round trip', () => {
 
 test('decodeShareCode reads a code straight out of a share link', async () => {
   const { extractShareCode } = await import('../assets/js/state.js');
-  const code = encodeShareCode(createDefaultState());
+  const code = await encodeShareCode(createDefaultState());
   const link = `https://schirmacher1.github.io/Openbook/#s=${encodeURIComponent(code)}`;
   assert.equal(extractShareCode(link), code);
-  assert.equal(decodeShareCode(link).salary, createDefaultState().salary);
+  assert.equal((await decodeShareCode(link)).salary, createDefaultState().salary);
 });
 
 test('extractShareCode leaves a bare code untouched', async () => {
   const { extractShareCode } = await import('../assets/js/state.js');
-  const code = encodeShareCode(createDefaultState());
+  const code = await encodeShareCode(createDefaultState());
   assert.equal(extractShareCode(code), code);
   assert.equal(extractShareCode(`  ${code}  `), code); // whitespace from a sloppy paste
 });
@@ -418,14 +418,14 @@ test('views never throw when storage is blocked', async () => {
  * inside an envelope instead of at the top level.
  * ------------------------------------------------------------------------- */
 
-test('a bundle round-trips its current state and every view, hydrated', () => {
+test('a bundle round-trips its current state and every view, hydrated', async () => {
   const current = createDefaultState();
   current.city = 'Zürich · 日本 · café';
   const viewState = createDefaultState();
   viewState.salary = 210000;
 
-  const code = encodeShareBundle({ current, views: [{ name: 'Plan A', state: viewState }] });
-  const decoded = decodeShareCode(code);
+  const code = await encodeShareBundle({ current, views: [{ name: 'Plan A', state: viewState }] });
+  const decoded = await decodeShareCode(code);
 
   assert.equal(decoded.bundle, true);
   assert.equal(decoded.current.city, 'Zürich · 日本 · café');
@@ -435,30 +435,33 @@ test('a bundle round-trips its current state and every view, hydrated', () => {
   assert.equal(Math.round(compute(decoded.views[0].state).price), Math.round(compute(viewState).price));
 });
 
-test('views-only and current-only bundles both encode cleanly', () => {
+test('views-only and current-only bundles both encode cleanly', async () => {
   const state = createDefaultState();
 
-  const viewsOnly = decodeShareCode(encodeShareBundle({ views: [{ name: 'A', state }] }));
+  const viewsOnly = await decodeShareCode(await encodeShareBundle({ views: [{ name: 'A', state }] }));
   assert.equal(viewsOnly.current, null);
   assert.equal(viewsOnly.views.length, 1);
 
-  const currentOnly = decodeShareCode(encodeShareBundle({ current: state, views: [] }));
+  const currentOnly = await decodeShareCode(await encodeShareBundle({ current: state, views: [] }));
   assert.notEqual(currentOnly.current, null);
   assert.equal(currentOnly.views.length, 0);
 });
 
-test('a code from before the bundle format existed still decodes as a bare state', () => {
+test('a code from before the bundle format existed still decodes as a bare state', async () => {
   // encodeShareCode() never changed shape — this pins that a code already sent
   // under the old format keeps decoding exactly as it always has, not as an
   // empty or malformed bundle.
   const original = createDefaultState();
-  const decoded = decodeShareCode(encodeShareCode(original));
+  const decoded = await decodeShareCode(await encodeShareCode(original));
   assert.notEqual(decoded, null);
   assert.equal(decoded.bundle, undefined);
   assert.equal(decoded.salary, original.salary);
 });
 
-test('a bundle sanitises every view the same way a corrupt storage entry is sanitised', () => {
+test('a bundle sanitises every view the same way a corrupt storage entry is sanitised', async () => {
+  // Hand-built as the old, uncompressed format (no leading '~') — exactly
+  // what a hostile or pre-compression code looks like on the wire, so this
+  // still exercises hydrate()'s sanitising on that path specifically.
   const evil = btoa(unescape(encodeURIComponent(JSON.stringify({
     openbookShare: 2,
     current: { salary: Infinity, __proto__: { polluted: true } },
@@ -470,7 +473,7 @@ test('a bundle sanitises every view the same way a corrupt storage entry is sani
     ]
   }))));
 
-  const decoded = decodeShareCode(evil);
+  const decoded = await decodeShareCode(evil);
   assert.equal(decoded.bundle, true);
   assert.ok(Number.isFinite(decoded.current.salary));
   assert.equal(({}).polluted, undefined, 'no prototype pollution');
@@ -485,23 +488,23 @@ test('a bundle sanitises every view the same way a corrupt storage entry is sani
   assert.ok(Number.isFinite(decoded.views[0].state.salary));
 });
 
-test('a bundle is capped at VIEW_LIMITS.count views, not accepted without bound', () => {
+test('a bundle is capped at VIEW_LIMITS.count views, not accepted without bound', async () => {
   const state = createDefaultState();
   const many = Array.from({ length: VIEW_LIMITS.count + 40 }, (_, i) => ({ name: `V${i}`, state }));
-  const decoded = decodeShareCode(encodeShareBundle({ views: many }));
+  const decoded = await decodeShareCode(await encodeShareBundle({ views: many }));
   assert.equal(decoded.views.length, VIEW_LIMITS.count);
 });
 
-test('an oversized bundle is refused before it is ever parsed', () => {
+test('an oversized bundle is refused before it is ever parsed', async () => {
   const state = createDefaultState();
   const huge = Array.from({ length: VIEW_LIMITS.count }, (_, i) => ({
     name: `V${i}`,
     state: { ...state, city: 'x'.repeat(LIMITS.city) }
   }));
-  const code = encodeShareBundle({ views: huge });
+  const code = await encodeShareBundle({ views: huge });
   // The real limit is generous enough for a full library (see levers/compare
   // tests); this only pins that the length guard still fires on something
   // that exceeds it, using the same code path a hostile input would.
-  assert.throws(() => decodeShareCode('A'.repeat(LIMITS.shareCode + 1)), /too long/i);
+  await assert.rejects(() => decodeShareCode('A'.repeat(LIMITS.shareCode + 1)), /too long/i);
   assert.ok(code.length < LIMITS.shareCode, 'a full library must fit under the guard, not just be refused by it');
 });

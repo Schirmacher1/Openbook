@@ -372,15 +372,90 @@ export function clearViews() {
  * email or chat, and the other person pastes it back in.
  * ------------------------------------------------------------------------- */
 
-function toBase64Json(payload) {
-  const json = JSON.stringify(payload);
-  const bytes = new TextEncoder().encode(json);
+/**
+ * Real states compress well — long, repeated JSON keys, one row per savings
+ * or debt item, a whole "share all views" bundle repeating that structure
+ * once per view — which turns out to matter for more than the size of a
+ * paste. A code this long travels as a link now, and a link that long has
+ * to survive being handed from one app to another (tapped where it was
+ * sent, opened by the OS into a browser) — a hop that both Android and iOS
+ * cap the length of, silently truncating or refusing anything past some
+ * limit that's well below what typing the same URL into an address bar
+ * directly would tolerate. That's a different failure from anything a
+ * decode error message can describe, because by the time it reaches this
+ * page it's already the wrong bytes — "doesn't look right" is the truth,
+ * just not a fixable one on this end. Compressing first is the fix: it
+ * routinely cuts a bundle to a fifth or better of its plain size, which is
+ * the difference between crossing that limit and not.
+ *
+ * Marked with a leading '~' — a character no base64 alphabet ever produces
+ * — so a compressed code can never be mistaken for a bare one, including
+ * every code already sent before this existed. Feature-detected:
+ * CompressionStream reached Safari (and so iOS) in 16.4, released March
+ * 2023; a browser without it falls back to exactly the uncompressed format
+ * this always used, both to encode and to decode one back.
+ */
+const CAN_COMPRESS = typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
+const COMPRESSED_MARKER = '~';
+
+/** Far more than any real state needs (a full 24-view bundle, uncompressed,
+ *  runs well under a tenth of this) — generous headroom against a false
+ *  positive, tight enough to stop a maliciously crafted code from expanding
+ *  into something that exhausts memory on whoever's browser decompresses
+ *  it. Checked as the stream is read, not after buffering all of it, since
+ *  buffering first is exactly the exposure this exists to close. */
+const MAX_DECOMPRESSED_BYTES = 2_000_000;
+
+async function gzip(bytes) {
+  const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function gunzip(bytes) {
+  const reader = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip')).getReader();
+  const chunks = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > MAX_DECOMPRESSED_BYTES) {
+      reader.cancel();
+      throw new Error('Share code expands to something implausibly large');
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) { out.set(chunk, offset); offset += chunk.length; }
+  return out;
+}
+
+function bytesToBase64(bytes) {
   let binary = '';
   bytes.forEach((b) => { binary += String.fromCharCode(b); });
   return btoa(binary);
 }
 
-export function encodeShareCode(state) {
+function base64ToBytes(base64) {
+  return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+}
+
+async function toBase64Json(payload) {
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  if (CAN_COMPRESS) {
+    try {
+      return COMPRESSED_MARKER + bytesToBase64(await gzip(bytes));
+    } catch (e) {
+      // Compression itself failing (not just being unsupported) is
+      // unexpected, but not a reason to fail the share outright — the
+      // uncompressed format below has always worked and still does.
+    }
+  }
+  return bytesToBase64(bytes);
+}
+
+export async function encodeShareCode(state) {
   return toBase64Json(serialize(state));
 }
 
@@ -404,7 +479,7 @@ const SHARE_VERSION = 2;
  * the library itself is: a library that size is already a lot to page
  * through, and it keeps the code from growing without bound.
  */
-export function encodeShareBundle({ current, views } = {}) {
+export async function encodeShareBundle({ current, views } = {}) {
   return toBase64Json({
     openbookShare: SHARE_VERSION,
     current: current ? serialize(current) : null,
@@ -435,23 +510,33 @@ export function extractShareCode(raw) {
 }
 
 /**
- * Reads either format code produces. A bare code — from encodeShareCode(), or
- * from any earlier version of the page, since the format hasn't changed —
- * comes back as a hydrated state directly, exactly as it always has, for
- * compatibility with every code already sent and every existing call site.
+ * Reads any format code has ever produced. A bare code — from
+ * encodeShareCode(), or from any earlier version of the page, since the
+ * format hasn't changed — comes back as a hydrated state directly, exactly
+ * as it always has, for compatibility with every code already sent and
+ * every existing call site. A compressed code (the '~' marker) is gunzipped
+ * first; a browser too old to do that gets a clear error rather than a
+ * confusing one, since there's no way to read it in that browser at all.
  *
  * A bundle comes back as `{ bundle: true, current, views }`: `current`
  * hydrated (or null, if the code was views only), and each view's state
  * hydrated the same way listViews() sanitises its own — a tampered or
  * corrupted entry is dropped or defaulted, never trusted.
  */
-export function decodeShareCode(code) {
+export async function decodeShareCode(code) {
   const raw = extractShareCode(code);
   // Refuse to decode something far larger than any real state, rather than
-  // handing a multi-megabyte string to atob and JSON.parse.
+  // handing a multi-megabyte string to atob (and, compressed, on to a
+  // decompressor that has its own much larger cap for the same reason).
   if (raw.length > LIMITS.shareCode) throw new Error('Share code is too long to be real');
-  const binary = atob(raw);
-  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+
+  let bytes;
+  if (raw.startsWith(COMPRESSED_MARKER)) {
+    if (!CAN_COMPRESS) throw new Error("This browser can't read a compressed share code — try updating it");
+    bytes = await gunzip(base64ToBytes(raw.slice(COMPRESSED_MARKER.length)));
+  } else {
+    bytes = base64ToBytes(raw);
+  }
   const parsed = JSON.parse(new TextDecoder().decode(bytes));
 
   if (parsed && typeof parsed === 'object' && parsed.openbookShare === SHARE_VERSION) {
