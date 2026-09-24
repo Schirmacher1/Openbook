@@ -621,20 +621,27 @@
               differ silently — the "Down payment" stat below would just show
               a smaller number than the one just typed, with nothing on the
               page explaining why — which is exactly what read as a bug.
+
+              Collapsed behind the same <details> disclosure as .rule-note
+              (below, in the rules-of-thumb chart) rather than always open:
+              one line by default, the two figures and the full explanation
+              only for whoever clicks in.
             -->
             <div class="cash-notice" id="cashCapNotice" hidden>
-              <p class="cash-notice-heading">Your cash on hand — not your down payment — is what's holding this back</p>
-              <div class="cash-notice-compare">
-                <div class="cash-notice-figure">
-                  <span class="cash-notice-label">Down payment alone would allow</span>
-                  <span class="cash-notice-value" id="cashNoticeBudgetPrice">$0</span>
+              <details class="rule-note">
+                <summary id="cashNoticeSummary">Held back by your cash, not your down payment</summary>
+                <div class="cash-notice-compare">
+                  <div class="cash-notice-figure">
+                    <span class="cash-notice-label">Down payment alone would allow</span>
+                    <span class="cash-notice-value" id="cashNoticeBudgetPrice">$0</span>
+                  </div>
+                  <div class="cash-notice-figure">
+                    <span class="cash-notice-label">Your cash on hand allows</span>
+                    <span class="cash-notice-value" id="cashNoticeCashPrice">$0</span>
+                  </div>
                 </div>
-                <div class="cash-notice-figure">
-                  <span class="cash-notice-label">Your cash on hand allows</span>
-                  <span class="cash-notice-value" id="cashNoticeCashPrice">$0</span>
-                </div>
-              </div>
-              <p class="cash-notice-detail" id="cashNoticeDetail"></p>
+                <p class="cash-notice-detail" id="cashNoticeDetail"></p>
+              </details>
             </div>
 
             <div class="payment-viz">
@@ -672,6 +679,10 @@
               <div class="stat"><dt>Cash to close</dt><dd id="outCash">$0</dd></div>
             </dl>
             <p class="result-sub" id="outCashNote"></p>
+            <!-- A .rule-note <details> is appended here by app.js when the
+                 reasoning is worth reading but shouldn't be forced open for
+                 everyone — empty and inert otherwise. -->
+            <div id="outCashDetails"></div>
 
             <!-- Affiliate slot — see the note on the rates slot above. -->
             <aside class="partner partner-quiet" data-partner="insurance" hidden>
@@ -708,6 +719,9 @@
               <div class="stat"><dt>Escrow &amp; prepaid interest</dt><dd id="cashEscrow">$0</dd></div>
             </dl>
             <p class="result-sub" id="cashNote"></p>
+            <!-- A .rule-note <details> is appended here by app.js — see the
+                 note by outCashDetails above. -->
+            <div id="cashNoteDetails"></div>
           </div>
 
           <a class="result-card result-card-link reveal-on-complete" href="#rules" id="rulesSummary">
