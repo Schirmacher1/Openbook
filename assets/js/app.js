@@ -409,6 +409,17 @@ $('gateNext').addEventListener('click', () => {
   scrollToPanel(selectTab($('gateNext').dataset.gotoTab));
 });
 
+// The jump-nav under "Your numbers" (index.html) — open the destination's
+// collapsed .details-card, if it has one, before the browser's own #anchor
+// scroll takes over, so landing on "Ledger" doesn't land on a closed one.
+document.querySelectorAll('.jump-nav a[href^="#"]').forEach((link) => {
+  link.addEventListener('click', () => {
+    const target = document.querySelector(link.getAttribute('href'));
+    const details = target?.querySelector('details.details-card');
+    if (details) details.open = true;
+  });
+});
+
 // A resize (or a foldable/tablet rotating) can cross the 1000px line without
 // a reload — re-decide which panels carry `hidden` right when that happens,
 // not just on the next tab click.

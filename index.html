@@ -190,6 +190,20 @@
         <span class="eyebrow">The calculator</span>
         <h2>Your numbers</h2>
         <p>Everything updates as you type. Nothing is sent anywhere.</p>
+        <!--
+          Jump straight to a section instead of scrolling past everything —
+          nothing below is hidden or removed, this just skips the trip. Only
+          appears once there's somewhere to jump to (see revealResults() in
+          app.js), and opens a collapsed .details-card at the destination
+          before the browser's own #anchor scroll takes over, so landing on
+          "Ledger" doesn't land on a closed one.
+        -->
+        <nav class="jump-nav reveal-on-complete" aria-label="Jump to a section">
+          <a class="btn btn-ghost btn-sm" href="#results">Estimate</a>
+          <a class="btn btn-ghost btn-sm" href="#ledger">Ledger</a>
+          <a class="btn btn-ghost btn-sm" href="#rules">Rules of thumb</a>
+          <a class="btn btn-ghost btn-sm" href="#levers">Levers</a>
+        </nav>
       </header>
 
       <!--
@@ -757,60 +771,70 @@
         </h3>
         <p class="card-sub">Every dollar of your gross pay, from the first one: tax, then what your employer holds back, then what you spend. This is derived live — it isn't separate data to fill in.</p>
 
-        <div class="ledger-income">
-          <span>Monthly gross pay</span>
-          <span id="ledgerGross">$0</span>
-        </div>
-
         <!--
-          The two rows above take-home pay are the ones nobody chooses to spend.
-          They used to sit in a separate "Tax breakdown" card below the ledger,
-          which meant a card called "Where every dollar goes" started three
-          thousand dollars in.
+          Collapsed by default: the numbers are all still here, just one tap
+          away rather than forcing a long card open on everyone landing on
+          the page. See the jump-nav note above for how "Ledger" opens this.
         -->
-        <p class="group-label">Before it reaches you <span class="group-label-note">— open a row to see what's inside</span></p>
-        <div id="ledgerPreRows"></div>
+        <details class="details-card">
+          <summary>Show the full monthly breakdown</summary>
+          <div class="details-body">
+            <div class="ledger-income">
+              <span>Monthly gross pay</span>
+              <span id="ledgerGross">$0</span>
+            </div>
 
-        <div class="ledger-subtotal">
-          <span>Monthly take-home pay</span>
-          <span id="ledgerIncome">$0</span>
-        </div>
-        <p class="hint" id="ledgerIncomeHint"></p>
+            <!--
+              The two rows above take-home pay are the ones nobody chooses to spend.
+              They used to sit in a separate "Tax breakdown" card below the ledger,
+              which meant a card called "Where every dollar goes" started three
+              thousand dollars in.
+            -->
+            <p class="group-label">Before it reaches you <span class="group-label-note">— open a row to see what's inside</span></p>
+            <div id="ledgerPreRows"></div>
 
-        <p class="group-label">Debits <span class="group-label-note">— open a row to see what's inside</span></p>
-        <div id="ledgerRows"></div>
+            <div class="ledger-subtotal">
+              <span>Monthly take-home pay</span>
+              <span id="ledgerIncome">$0</span>
+            </div>
+            <p class="hint" id="ledgerIncomeHint"></p>
 
-        <div class="field price-mode-field">
-          <label id="priceModeLabel">Home price used in the housing row</label>
-          <div class="segmented segmented-wide" id="segPriceMode" role="group" aria-labelledby="priceModeLabel"></div>
-          <div id="testPriceWrap" hidden>
-            <div class="adorned field-followup"><span class="prefix">$</span><input type="text" inputmode="numeric" id="testPrice" autocomplete="off" /></div>
-            <p class="hint">Try a specific asking price and watch what it does to the bottom line.</p>
+            <p class="group-label">Debits <span class="group-label-note">— open a row to see what's inside</span></p>
+            <div id="ledgerRows"></div>
+
+            <div class="field price-mode-field">
+              <label id="priceModeLabel">Home price used in the housing row</label>
+              <div class="segmented segmented-wide" id="segPriceMode" role="group" aria-labelledby="priceModeLabel"></div>
+              <div id="testPriceWrap" hidden>
+                <div class="adorned field-followup"><span class="prefix">$</span><input type="text" inputmode="numeric" id="testPrice" autocomplete="off" /></div>
+                <p class="hint">Try a specific asking price and watch what it does to the bottom line.</p>
+              </div>
+            </div>
+
+            <div class="card-total"><span>Total monthly debits</span><span id="ledgerDebits">$0</span></div>
+
+            <div class="divider"></div>
+
+            <div class="ledger-net" id="ledgerNetRow">
+              <span>Unallocated income</span>
+              <span id="ledgerNet">$0</span>
+            </div>
+            <p class="hint" id="ledgerNetHint"></p>
+
+            <p class="disclaimer">
+              State income tax is estimated from each state's published rates or brackets, applied to the same income
+              figure as the federal calculation — it doesn't model a state's own deductions, exemptions or credits, and a
+              few smaller states use a simplified version of their real brackets. Local and city income tax (NYC, for
+              instance) isn't included. Mortgage rate, PMI, property tax and insurance are broad national estimates by
+              credit tier and state, not a quote; a lender will confirm the real figures. Rates were last checked against
+              Freddie Mac's weekly survey in <span id="ratesAsOf">—</span>. Property tax is aimed at what a
+              <em>buyer</em> pays once the home is reassessed at the price paid, which in states that cap assessment
+              growth — California above all — is well above the published average across people who already own.
+              Openbook sizes a home price around your budget, not the maximum a lender might approve.
+            </p>
           </div>
-        </div>
-
-        <div class="card-total"><span>Total monthly debits</span><span id="ledgerDebits">$0</span></div>
-
-        <div class="divider"></div>
-
-        <div class="ledger-net" id="ledgerNetRow">
-          <span>Unallocated income</span>
-          <span id="ledgerNet">$0</span>
-        </div>
-        <p class="hint" id="ledgerNetHint"></p>
+        </details>
       </div>
-
-      <p class="disclaimer">
-        State income tax is estimated from each state's published rates or brackets, applied to the same income
-        figure as the federal calculation — it doesn't model a state's own deductions, exemptions or credits, and a
-        few smaller states use a simplified version of their real brackets. Local and city income tax (NYC, for
-        instance) isn't included. Mortgage rate, PMI, property tax and insurance are broad national estimates by
-        credit tier and state, not a quote; a lender will confirm the real figures. Rates were last checked against
-        Freddie Mac's weekly survey in <span id="ratesAsOf">—</span>. Property tax is aimed at what a
-        <em>buyer</em> pays once the home is reassessed at the price paid, which in states that cap assessment
-        growth — California above all — is well above the published average across people who already own.
-        Openbook sizes a home price around your budget, not the maximum a lender might approve.
-      </p>
     </div>
   </section>
 
@@ -825,33 +849,39 @@
 
       <p class="gate-notice show-until-complete">Finish the three steps in the calculator above and your own figures appear here, measured against each rule.</p>
 
-      <p class="rules-verdict reveal-on-complete" id="rulesVerdict">—</p>
+      <!-- Collapsed by default — see the note by #ledger's details-card. -->
+      <details class="details-card reveal-on-complete">
+        <summary>Show the chart and the readiness checks</summary>
+        <div class="details-body">
+          <p class="rules-verdict" id="rulesVerdict">—</p>
 
-      <figure class="viz-root rules-chart reveal-on-complete">
-        <figcaption class="rules-caption">
-          <span>Most expensive home each rule allows</span>
-          <span class="rules-key">
-            <span class="key-item"><span class="swatch swatch-openbook" aria-hidden="true"></span> Your paycheck</span>
-            <span class="key-item"><span class="swatch swatch-lender" aria-hidden="true"></span> Published rule</span>
-            <span class="key-item"><span class="swatch swatch-ceiling" aria-hidden="true"></span> Warning line</span>
-          </span>
-        </figcaption>
-        <ol class="rule-rows" id="ruleRows"></ol>
-      </figure>
+          <figure class="viz-root rules-chart">
+            <figcaption class="rules-caption">
+              <span>Most expensive home each rule allows</span>
+              <span class="rules-key">
+                <span class="key-item"><span class="swatch swatch-openbook" aria-hidden="true"></span> Your paycheck</span>
+                <span class="key-item"><span class="swatch swatch-lender" aria-hidden="true"></span> Published rule</span>
+                <span class="key-item"><span class="swatch swatch-ceiling" aria-hidden="true"></span> Warning line</span>
+              </span>
+            </figcaption>
+            <ol class="rule-rows" id="ruleRows"></ol>
+          </figure>
 
-      <div class="readiness reveal-on-complete">
-        <h3>What comes before the payment</h3>
-        <p class="readiness-sub">Every source here spends more time on what comes before the mortgage than on the mortgage. Openbook checks what it can see.</p>
-        <ul class="readiness-list" id="readinessList"></ul>
-      </div>
+          <div class="readiness">
+            <h3>What comes before the payment</h3>
+            <p class="readiness-sub">Every source here spends more time on what comes before the mortgage than on the mortgage. Openbook checks what it can see.</p>
+            <ul class="readiness-list" id="readinessList"></ul>
+          </div>
 
-      <p class="disclaimer">
-        Each rule above is a summary of guidance its source publishes. Openbook is not affiliated with, endorsed by
-        or connected to Ramsey Solutions, The Money Guy Show, or the U.S. Department of Housing and Urban
-        Development — their names appear because their guidance is worth measuring against, and the links go to
-        their own words. Summaries lose nuance, so follow a link before you act on one. Nothing here is financial
-        advice.
-      </p>
+          <p class="disclaimer">
+            Each rule above is a summary of guidance its source publishes. Openbook is not affiliated with, endorsed by
+            or connected to Ramsey Solutions, The Money Guy Show, or the U.S. Department of Housing and Urban
+            Development — their names appear because their guidance is worth measuring against, and the links go to
+            their own words. Summaries lose nuance, so follow a link before you act on one. Nothing here is financial
+            advice.
+          </p>
+        </div>
+      </details>
     </div>
   </section>
 
@@ -866,9 +896,14 @@
 
       <p class="gate-notice show-until-complete">Finish the three steps in the calculator above and the levers worth pulling — with what each one is worth — appear here.</p>
 
-      <ol class="lever-list reveal-on-complete" id="leverList"></ol>
-
-      <p class="disclaimer reveal-on-complete" id="leverNote"></p>
+      <!-- Collapsed by default — see the note by #ledger's details-card. -->
+      <details class="details-card reveal-on-complete">
+        <summary>Show the levers</summary>
+        <div class="details-body">
+          <ol class="lever-list" id="leverList"></ol>
+          <p class="disclaimer" id="leverNote"></p>
+        </div>
+      </details>
     </div>
   </section>
 
