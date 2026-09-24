@@ -1226,16 +1226,29 @@ function renderCash(result) {
   // estimate normally, or a what-if price once one is entered — which can
   // genuinely differ from the "Cash to close" stat on the price card above,
   // which is always for the estimate. Silent about it, the two numbers would
-  // just look like they disagreed.
+  // just look like they disagreed. The full reasoning (what each line
+  // covers, the transfer-tax caveat, the reminder this is a one-time cost)
+  // sits behind a details toggle instead of forcing every reader through it.
   $('cashNote').textContent =
     (result.ledger.usingTestPrice
       ? `For the ${money(result.ledger.payment.price)} price you entered below, not the estimate above. `
       : '')
-    + `${money(cash.costs)} of that is on top of the down payment: lender and title fees, `
-    + `${ESCROW_MONTHS_TAX} months of property tax and ${ESCROW_MONTHS_INSURANCE} of insurance into escrow, `
-    + 'and interest from closing to month end. Transfer taxes vary enormously by state, so treat the fee line as a '
-    + 'national middle rather than a quote — and remember none of this changes the monthly payment, only whether you '
-    + 'can get to the table.';
+    + `${money(cash.costs)} on top of the down payment: fees, escrow, and prepaid interest.`;
+
+  const cashNoteDetails = $('cashNoteDetails');
+  cashNoteDetails.textContent = '';
+  const note = document.createElement('details');
+  note.className = 'rule-note';
+  const summary = document.createElement('summary');
+  summary.textContent = 'Details';
+  const body = document.createElement('p');
+  body.textContent =
+    `Fees: lender and title costs. Escrow: ${ESCROW_MONTHS_TAX} months of property tax and `
+    + `${ESCROW_MONTHS_INSURANCE} of insurance, plus interest from closing to month end. Transfer taxes vary `
+    + 'enormously by state, so treat the fee line as a national middle rather than a quote — and remember none of '
+    + 'this changes the monthly payment, only whether you can get to the table.';
+  note.append(summary, body);
+  cashNoteDetails.appendChild(note);
 }
 
 /**
@@ -1409,10 +1422,16 @@ function paint({ animate = false } = {}) {
   // Unmissable, not just a footnote: what the down payment as typed would
   // allow on its own, next to what the cash on hand actually allows, the
   // moment the two genuinely differ — rather than only a small note further
-  // down the page a viewer could easily scroll past.
+  // down the page a viewer could easily scroll past. Collapsed to one
+  // summary line by default (the headline fact) with the two figures and
+  // the full explanation one click away — this is now the one place that
+  // explains the trade in full; outCashNote and totalCashHint below just
+  // point back to it instead of repeating it.
   const cashNotice = $('cashCapNotice');
   cashNotice.hidden = !result.cappedByCash;
   if (result.cappedByCash) {
+    $('cashNoticeSummary').textContent =
+      `Held to ${money(result.price)} by your cash, not your ${money(result.model.downpayment)} down payment`;
     $('cashNoticeBudgetPrice').textContent = money(result.budgetPrice);
     $('cashNoticeCashPrice').textContent = money(result.price);
     $('cashNoticeDetail').textContent = downGaveWay
@@ -1432,13 +1451,28 @@ function paint({ animate = false } = {}) {
   // entered, so the two can differ on purpose; this one never does.
   const estimateCash = cashToClose(result.payment, result.model);
   $('outCash').textContent = money(estimateCash.total);
-  $('outCashNote').textContent = result.cappedByCash
-    ? downGaveWay
-      ? `${money(estimateCash.costs)} of that is fees and escrow on top of the down payment above. Your cash didn't stretch to the full ${money(result.model.downpayment)} you set plus those costs, so the down payment above is ${money(result.payment.down)} instead — enough to keep the price close to the ${money(result.budgetPrice)} your monthly budget alone would allow, rather than letting the price itself drop instead. Full breakdown below.`
-      : `${money(estimateCash.costs)} of that is fees and escrow on top of the down payment above — a one-time cost to get to the closing table. `
-        + `It's why the price above is held to ${money(result.price)} rather than the ${money(result.budgetPrice)} your monthly budget alone would allow: that much house would need more cash to close than you said you have. Full breakdown below.`
-    : `${money(estimateCash.costs)} of that is fees and escrow on top of the down payment above — `
-      + 'a one-time cost to get to the closing table, not a monthly one, so by default it never changes the price shown here — enter how much cash you have above to change that. Full breakdown below.';
+
+  // Capped: the notice above already explains the trade in full, so this
+  // only needs to point at it — repeating the whole explanation here is
+  // exactly the redundancy that made the page feel busier than it is.
+  // Not capped (the default): a short lead, with the reasoning tucked behind
+  // a details toggle rather than forced open for everyone.
+  const outCashDetails = $('outCashDetails');
+  outCashDetails.textContent = '';
+  if (result.cappedByCash) {
+    $('outCashNote').textContent =
+      `${money(estimateCash.costs)} is fees and escrow on top of the down payment above — see the note above for why the price is held to ${money(result.price)}.`;
+  } else {
+    $('outCashNote').textContent = `${money(estimateCash.costs)} of that is fees and escrow on top of the down payment above.`;
+    const note = document.createElement('details');
+    note.className = 'rule-note';
+    const summary = document.createElement('summary');
+    summary.textContent = "Why doesn't this change the price?";
+    const body = document.createElement('p');
+    body.textContent = "It's a one-time cost to get to the closing table, not a monthly one, so by default it never changes the price shown here — enter how much cash you have above to change that. Full breakdown below.";
+    note.append(summary, body);
+    outCashDetails.appendChild(note);
+  }
 
   // --- take-home & budget ---
   $('takeHomeLabel').textContent = result.freq.label;
@@ -1460,12 +1494,13 @@ function paint({ animate = false } = {}) {
     ? `${result.payment.downPct.toFixed(1)}% of the estimated price.${result.payment.downPct < 20 ? ' Under 20% means PMI.' : ' No PMI at 20% or more.'}`
     : '';
 
+  // Capped: the notice above the headline already carries the full
+  // explanation (both figures, and which one gave way) — this just points
+  // up at it rather than saying the same thing a third time on one screen.
   $('totalCashHint').textContent = !result.usingCashLimit
     ? "Unlike the emergency fund below, this one does feed the estimate: leave it blank and only the monthly payment limits the price. Set it and, if cash is tight, the down payment above gives way first — down to $0 if it has to — to keep the price as high as it can before the price itself would need to drop too."
     : result.cappedByCash
-      ? downGaveWay
-        ? `This is why the down payment above is ${money(result.payment.down)} rather than the ${money(state.downpayment)} you set: your cash didn't stretch to both, so the down payment gave way to keep the price close to the ${money(result.budgetPrice)} your monthly budget alone would allow.`
-        : `This is what's holding the price back: your monthly budget alone would allow ${money(result.budgetPrice)}, but that takes more cash to close than you have. Held to ${money(result.price)} instead.`
+      ? 'Your cash is the tighter test right now — see the note above the price for the numbers.'
       : `Enough — closing at the estimate above takes about ${money(estimateCash.total)}, within the ${money(state.totalCash)} you said you have. The monthly budget is what's limiting the price here.`;
   $('firstHomeHint').textContent = state.firstHome !== false
     ? "The Money Guy's 3/5/25 lets a first home go as low as 3% down, provided you plan to stay five years. Under 20% still means PMI."
