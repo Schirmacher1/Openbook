@@ -127,6 +127,39 @@ test('20% down removes PMI entirely', () => {
   assert.ok(model.paymentAt(600000).pmi > 0);
 });
 
+test('a manual rate replaces the credit-tier estimate outright', () => {
+  const state = { ...createDefaultState(), rateMode: 'manual', rateManual: 5.5 };
+  const model = housingModel(state);
+  assert.equal(model.rate, 5.5);
+  assert.notEqual(model.rate, rateForTerm(CREDIT_BANDS[state.credit], state.term));
+});
+
+test('a manual rate ignores the 15-year discount — it already prices the term entered', () => {
+  const rate30 = housingModel({ ...createDefaultState(), rateMode: 'manual', rateManual: 6, term: 30 }).rate;
+  const rate15 = housingModel({ ...createDefaultState(), rateMode: 'manual', rateManual: 6, term: 15 }).rate;
+  assert.equal(rate30, 6);
+  assert.equal(rate15, 6, 'the term-based discount only applies to the estimate, never to a real quote');
+});
+
+test('a manual rate never goes negative', () => {
+  const model = housingModel({ ...createDefaultState(), rateMode: 'manual', rateManual: -3 });
+  assert.equal(model.rate, 0);
+});
+
+test('rateMode "manual" with no rate entered yet falls back to the credit-tier estimate', () => {
+  const state = { ...createDefaultState(), rateMode: 'manual', rateManual: null };
+  const model = housingModel(state);
+  assert.equal(model.rate, rateForTerm(CREDIT_BANDS[state.credit], state.term));
+});
+
+test('credit score still sets the PMI tier under a manual rate', () => {
+  const good = housingModel({ ...createDefaultState(), rateMode: 'manual', rateManual: 6, credit: '800', downpayment: 10000 });
+  const poor = housingModel({ ...createDefaultState(), rateMode: 'manual', rateManual: 6, credit: '580', downpayment: 10000 });
+  assert.equal(good.rate, 6);
+  assert.equal(poor.rate, 6);
+  assert.ok(poor.paymentAt(300000).pmi > good.paymentAt(300000).pmi, 'PMI must still track credit, independent of the rate');
+});
+
 test('solvePriceForCash with generous cash matches solvePrice exactly, full down payment kept', () => {
   const state = { ...createDefaultState(), downpayment: 40000, insMode: 'manual', insManual: 120 };
   const model = housingModel(state);
@@ -212,6 +245,16 @@ test('compute: the estimated payment uses up the housing budget', () => {
   assert.ok(result.payment.total <= result.housingBudget + 0.01);
   // Nothing should be left unallocated beyond a PMI-tier sliver.
   assert.ok(result.ledger.unallocated < result.housingBudget * 0.25);
+});
+
+test('compute: a manual rate flows through to the payment and the affordable price', () => {
+  const estimate = compute(createDefaultState());
+  const lowerRate = compute({ ...createDefaultState(), rateMode: 'manual', rateManual: 3 });
+
+  assert.equal(lowerRate.model.rate, 3);
+  assert.notEqual(lowerRate.model.rate, estimate.model.rate);
+  // A lower rate buys more house for the same monthly budget.
+  assert.ok(lowerRate.price > estimate.price);
 });
 
 test('compute: excluded rows drop out of every total', () => {

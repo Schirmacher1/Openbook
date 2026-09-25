@@ -51,6 +51,12 @@ export function createDefaultState() {
     stateCode: 'CO',
     downpayment: 40000,
     hoa: 0,
+    rateMode: 'estimate',
+    // null until the first switch to manual, same as testPrice below — the
+    // UI fills it with the live credit-tier estimate right then, rather than
+    // one fixed guess that would be wrong for anyone not on the default
+    // credit tier and term.
+    rateManual: null,
     insMode: 'estimate',
     insManual: 120,
     priceTestMode: 'auto',
@@ -88,8 +94,8 @@ export function newItem(kind, overrides = {}) {
 
 const PERSISTED_KEYS = [
   'salary', 'filing', 'payfreq', 'k401', 'savingsItems', 'debtItems', 'expenseItems',
-  'credit', 'term', 'city', 'stateCode', 'downpayment', 'hoa', 'insMode', 'insManual',
-  'priceTestMode', 'testPrice', 'totalCash', 'emergencyFund', 'firstHome'
+  'credit', 'term', 'city', 'stateCode', 'downpayment', 'hoa', 'rateMode', 'rateManual',
+  'insMode', 'insManual', 'priceTestMode', 'testPrice', 'totalCash', 'emergencyFund', 'firstHome'
 ];
 
 export function serialize(state) {
@@ -187,6 +193,8 @@ export function hydrate(data) {
     stateCode: oneOf(raw.stateCode, Object.keys(STATE_DATA), base.stateCode),
     downpayment: num(raw.downpayment, LIMITS.price, base.downpayment),
     hoa: num(raw.hoa, LIMITS.amount, 0),
+    rateMode: oneOf(raw.rateMode, ['estimate', 'manual'], base.rateMode),
+    rateManual: raw.rateManual == null ? null : num(raw.rateManual, LIMITS.pct),
     insMode: oneOf(raw.insMode, ['estimate', 'manual'], base.insMode),
     insManual: num(raw.insManual, LIMITS.amount, base.insManual),
     priceTestMode: oneOf(raw.priceTestMode, ['auto', 'manual'], base.priceTestMode),

@@ -10,7 +10,7 @@ import {
   STATE_DATA, CREDIT_BANDS, INS_TIER_TEXT, FILING_LABELS, DTI_FRONT_END, RATES_AS_OF,
   CLOSING_FEE_RANGE, ESCROW_MONTHS_TAX, ESCROW_MONTHS_INSURANCE
 } from './data.js';
-import { compute, parseNum, itemAmount, cashToClose } from './calc.js';
+import { compute, parseNum, itemAmount, cashToClose, rateForTerm } from './calc.js';
 import { evaluateBenchmarks, scoreBenchmarks, readiness } from './guidance.js';
 import { compareLedgers, COMPARE_LIMIT } from './compare.js';
 import { levers, debtRateNote } from './levers.js';
@@ -758,6 +758,20 @@ function renderSegments() {
   });
   segmented($('segTerm'), [{ label: '30-year fixed', value: 30 }, { label: '15-year fixed', value: 15 }], state.term, (term) => {
     state.term = term;
+    renderSegments();
+    touched();
+  });
+  segmented($('segRateMode'), [{ label: 'Estimate for me', value: 'estimate' }, { label: 'I know my rate', value: 'manual' }], state.rateMode, (mode) => {
+    state.rateMode = mode;
+    // First switch only, same as the "test a price" toggle: start from the
+    // live credit-tier estimate rather than one fixed guess that's only
+    // right for the default credit tier and term.
+    if (mode === 'manual' && state.rateManual == null) {
+      const band = CREDIT_BANDS[state.credit] || CREDIT_BANDS['670'];
+      state.rateManual = rateForTerm(band, state.term);
+      $('rateManual').value = state.rateManual;
+    }
+    $('rateManualWrap').hidden = mode !== 'manual';
     renderSegments();
     touched();
   });
@@ -1521,7 +1535,18 @@ function paint({ animate = false } = {}) {
   // written, so it says so rather than quoting a confident figure.
   $('creditHint').textContent = state.credit === '300'
     ? "Conventional lenders and mortgage insurers generally won't write a loan below about 620 at all. An FHA loan is the usual route, and it prices differently from the estimate here — treat this line as a rough upper bound on cost."
-    : '';
+    : state.rateMode === 'manual'
+      ? 'Still sets your PMI rate below, even with a real rate entered above.'
+      : '';
+
+  // The credit-tier estimate for this term, independent of which one is
+  // actually in effect — used as the reference figure in manual mode, and as
+  // the number itself (== result.model.rate there) in estimate mode.
+  const creditBand = CREDIT_BANDS[state.credit] || CREDIT_BANDS['670'];
+  const estimateRate = rateForTerm(creditBand, state.term);
+  $('rateHint').textContent = state.rateMode === 'manual'
+    ? `Used at every price, in place of the credit-tier estimate — which would be ${estimateRate.toFixed(2)}% for this credit tier and term.`
+    : `Estimated from your credit tier and loan term: ${estimateRate.toFixed(2)}%. Have a real quote? Switch to "I know my rate."`;
 
   $('insHint').textContent = state.insMode === 'estimate'
     ? `${INS_TIER_TEXT[result.model.insTier]} Estimated at ${money(result.payment.insurance)}/mo for this price.`
@@ -1640,6 +1665,8 @@ function syncInputs() {
   $('insManual').value = commas(state.insManual);
   $('emergencyFund').value = state.emergencyFund ? commas(state.emergencyFund) : '';
   $('totalCash').value = state.totalCash == null ? '' : commas(state.totalCash);
+  $('rateManualWrap').hidden = state.rateMode !== 'manual';
+  if (state.rateManual != null) $('rateManual').value = state.rateManual;
   $('insManualWrap').hidden = state.insMode !== 'manual';
   $('testPriceWrap').hidden = state.priceTestMode !== 'manual';
   if (state.testPrice != null) $('testPrice').value = commas(state.testPrice);
@@ -1690,6 +1717,13 @@ wireMoneyInput('hoa', 'hoa');
 wireMoneyInput('insManual', 'insManual');
 wireMoneyInput('testPrice', 'testPrice');
 wireMoneyInput('emergencyFund', 'emergencyFund', { blankWhenZero: true });
+
+// A rate, not a dollar figure — commas() would misformat "6.95" — so this
+// gets its own wiring rather than wireMoneyInput.
+$('rateManual').addEventListener('input', () => {
+  state.rateManual = parseNum($('rateManual').value);
+  touched();
+});
 wireMoneyInput('totalCash', 'totalCash', { nullable: true });
 wireSelect('filing', 'filing');
 wireSelect('payfreq', 'payfreq');

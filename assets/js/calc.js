@@ -127,7 +127,14 @@ export function computePaycheck({
 export function housingModel(state) {
   const band = CREDIT_BANDS[state.credit] || CREDIT_BANDS['670'];
   const stateInfo = STATE_DATA[state.stateCode] || STATE_DATA.CO;
-  const rate = rateForTerm(band, state.term);
+  // A real quoted rate replaces the credit-tier estimate outright — it
+  // already reflects this person's term and lender, so the 15-year discount
+  // baked into rateForTerm() (a modeling assumption for the estimate only)
+  // doesn't get layered on top of it. Credit score still drives PMI below,
+  // which a rate quote doesn't cover.
+  const rate = state.rateMode === 'manual' && state.rateManual != null
+    ? Math.max(0, state.rateManual)
+    : rateForTerm(band, state.term);
   const downpayment = Math.max(0, state.downpayment);
   const hoaMonthly = Math.max(0, state.hoa);
   const insTier = stateInfo.ins;
