@@ -541,6 +541,17 @@
               </div>
 
               <div class="field">
+                <label id="rateLabel">Interest rate</label>
+                <div class="segmented segmented-wide" id="segRateMode" role="group" aria-labelledby="rateLabel"></div>
+                <div id="rateManualWrap" hidden>
+                  <div class="adorned has-suffix field-followup">
+                    <input type="text" inputmode="decimal" id="rateManual" autocomplete="off" /><span class="suffix">%</span>
+                  </div>
+                </div>
+                <p class="hint" id="rateHint"></p>
+              </div>
+
+              <div class="field">
                 <label id="firstHomeLabel">Is this your first home?</label>
                 <div class="segmented segmented-wide" id="segFirstHome" role="group" aria-labelledby="firstHomeLabel"></div>
                 <p class="hint" id="firstHomeHint"></p>
@@ -976,7 +987,7 @@
         </details>
         <details>
           <summary>Where do the rate, PMI and insurance figures come from?</summary>
-          <div class="details-body"><p>They're broad national estimates by credit tier, loan term and state — the kind of figures that get you in the right neighbourhood. PMI steps up at the usual loan-to-value cutoffs and scales with your credit tier. If you have a real quote, switch insurance to "I know my rate" and enter it.</p></div>
+          <div class="details-body"><p>They're broad national estimates by credit tier, loan term and state — the kind of figures that get you in the right neighbourhood. PMI steps up at the usual loan-to-value cutoffs and scales with your credit tier, whether or not the rate itself is a real quote. Have an actual number for either? Switch the rate to "I know my rate," or the insurance to "I know my premium," and enter it.</p></div>
         </details>
         <details>
           <summary>Don't closing costs usually get added to the loan, lowering what I can afford?</summary>

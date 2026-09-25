@@ -67,6 +67,8 @@ test('non-finite and absurd numbers never reach the output', () => {
     'downpayment huge': { downpayment: 1e18 },
     'hoa Infinity': { hoa: Infinity },
     'testPrice NaN': { priceTestMode: 'manual', testPrice: NaN },
+    'rateManual NaN': { rateMode: 'manual', rateManual: NaN },
+    'rateManual Infinity': { rateMode: 'manual', rateManual: Infinity },
     'k401 Infinity': { k401: { pct: Infinity, mode: 'pct' } },
     'item value NaN': { debtItems: [{ label: 'x', value: NaN }] },
     'item value object': { debtItems: [{ label: 'x', value: { a: 1 } }] },
@@ -82,6 +84,14 @@ test('numbers are clamped into their documented range', () => {
   assert.equal(hydrate({ salary: -5 }).salary, 0);
   assert.equal(hydrate({ downpayment: 1e18 }).downpayment, LIMITS.price);
   assert.equal(hydrate({ savingsItems: [{ value: 1e9, mode: 'pct' }] }).savingsItems[0].value, LIMITS.pct);
+  assert.equal(hydrate({ rateMode: 'manual', rateManual: 1e9 }).rateManual, LIMITS.pct);
+  assert.equal(hydrate({ rateMode: 'manual', rateManual: -5 }).rateManual, 0);
+});
+
+test('rateManual stays null until a rate is actually entered, same as testPrice', () => {
+  assert.equal(hydrate({}).rateManual, null);
+  assert.equal(hydrate({ rateMode: 'manual' }).rateManual, null, 'switching modes alone must not invent a number');
+  assert.equal(hydrate({ rateMode: 'manual', rateManual: 5.5 }).rateManual, 5.5);
 });
 
 test('lists and labels are bounded, so a hostile code cannot hang the page', () => {
@@ -108,7 +118,7 @@ test('a label is never coerced, so it cannot run code of its own', () => {
 test('enums fall back rather than reaching the reference tables as-is', () => {
   const state = hydrate({
     filing: 'nope', payfreq: 'nope', stateCode: 'ZZ', credit: '999',
-    insMode: 'nope', priceTestMode: 'nope', term: 0,
+    insMode: 'nope', priceTestMode: 'nope', rateMode: 'nope', term: 0,
     k401: { mode: 'nope', type: 'nope' }
   });
   const base = createDefaultState();
@@ -118,6 +128,7 @@ test('enums fall back rather than reaching the reference tables as-is', () => {
   assert.equal(state.credit, base.credit);
   assert.equal(state.insMode, base.insMode);
   assert.equal(state.priceTestMode, base.priceTestMode);
+  assert.equal(state.rateMode, base.rateMode);
   assert.equal(state.term, 30);
   assert.equal(state.k401.mode, base.k401.mode);
   assert.equal(state.k401.type, base.k401.type);
